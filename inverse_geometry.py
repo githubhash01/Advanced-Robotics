@@ -33,6 +33,10 @@ Two Approaches for Computing the Grasp Pose
 
 1) Use Inverse Kinematics to compute the grasp pose
 
+    - do the right hand first
+    - find the nullspace of the right hand
+    - use the nullspace to compute the left hand
+    
 2) Use Optimization to compute the grasp pose
 
     - use a quadratic program for optimisation 
@@ -83,26 +87,10 @@ def quadprog_optimization(H, c, G=None, h=None, A=None, b=None):
         A = np.zeros((0, H.shape[0]))
         b = np.zeros(0)
 
-    H = np.ascontiguousarray(H)
-    c = np.ascontiguousarray(c)
-    G = np.ascontiguousarray(G)
-    h = np.ascontiguousarray(h)
-    A = np.ascontiguousarray(A)
-    b = np.ascontiguousarray(b)
-
-    # Debugging prints to check shapes
-    print(f"H shape: {H.shape}")
-    print(f"c shape: {c.shape}")
-    print(f"G shape: {G.shape}")
-    print(f"h shape: {h.shape}")
-    print(f"A shape: {A.shape}")
-    print(f"b shape: {b.shape}")
-
     # Solve the QP problem using quadprog
-    x_opt = quadprog.solve_qp(H, c, G, h, A, b)[0]  # [0] extracts the solution
+    x_opt = quadprog.solve_qp(H, c)[0] # [0] extracts the solution
 
     return x_opt
-
 
 # Gets the error between robot hands and a cube
 def get_hand_cube_errors(robot, q, cube):
@@ -138,207 +126,113 @@ def get_hand_cube_errors(robot, q, cube):
 
     # overall error used for optimisation x_dot = [x_dot_lh, x_dot_rh]
     x_dot = np.hstack((x_dot_lh, x_dot_rh))
-    print(f"x_dot shape in get_hand_cube_errors: {x_dot.shape}")
     return x_dot
 
-# Solves the inverse kinematic problem over a single time step
-def inverse_kinematics_step(robot, qcurrent, cube, time_step=0.1, viz=None):
-
+# Gets the jacobian of the hand of the robot
+def get_hand_jacobian(robot, q):
     """
     Input:
 
     robot: the robot model
-    qcurrent: the current configuration of the robot
-
+    q: the current configuration of the robot
 
     Returns:
 
-    qnext: the next configuration of the robot
+    jacobian (J = [J_lh, J_rh]): the jacobian for the left and right hand
 
     """
-    pin.framesForwardKinematics(robot.model, robot.data, qcurrent)
-    pin.computeJointJacobians(robot.model, robot.data, qcurrent)
+    pin.computeJointJacobians(robot.model, robot.data, q)
+    rh_frameid = robot.model.getFrameId(RIGHT_HAND)
+    lh_frameid = robot.model.getFrameId(LEFT_HAND)
 
-    # Compute the Jacobians for the left and right hand
-    rh_frame_id = robot.model.getFrameId(RIGHT_HAND)
-    jacobian_rh = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, rh_frame_id, pin.LOCAL)
+    jacobian_rh = pin.computeFrameJacobian(robot.model, robot.data, q, rh_frameid, pin.LOCAL)
+    jacobian_lh = pin.computeFrameJacobian(robot.model, robot.data, q, lh_frameid, pin.LOCAL)
 
-    lh_frame_id = robot.model.getFrameId(LEFT_HAND)
-    jacobian_lh = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, lh_frame_id, pin.LOCAL)
-
-    # Overall Jacobian for both hands
     jacobian = np.vstack((jacobian_lh, jacobian_rh))
+    return jacobian
 
-    # Compute the error between the current and target configuration
+# Solves the inverse kinematic problem over a single time step
+def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
+
+    cube_reached = False
     x_dot = get_hand_cube_errors(robot, qcurrent, cube).flatten()
+    jacobian = get_hand_jacobian(robot, qcurrent)
 
     # Compute the Hessian matrix H and vector c for the QP objective function
     H = jacobian.T @ jacobian
-    c = -jacobian.T @ x_dot  # Linear term to drive the error to zero
+    c = jacobian.T @ x_dot  # Linear term to drive the error to zero
 
     # Set up joint velocity constraints
     q_dot_min = (robot.model.lowerPositionLimit - qcurrent) / time_step
-    q_dot_max = (robot.model.upperPositionLimit - qcurrent) / time_step
-    h = np.hstack((q_dot_max, -q_dot_min))  # Constraints for velocity bounds
+    q_dot_max = (qcurrent - robot.model.upperPositionLimit) / time_step
 
-    # Generate G matrix for the constraints
-    G = np.vstack((np.eye(robot.model.nq), -np.eye(robot.model.nq))).T
+    # Construct G and h for the inequality constraints
+    G = np.vstack((np.eye(robot.model.nq), -np.eye(robot.model.nq)))
+    h = np.hstack((q_dot_max, -q_dot_min))
+
 
     # Solve the QP to find the next joint velocities
     q_dot = quadprog_optimization(H, c, G, h)
+    # Update q current to the next position
 
-    # Update qcurrent to the next position
-    qnext = qcurrent + q_dot * time_step
-
-    if viz is not None:
-        viz.display(qnext)
-        time.sleep(time_step)
-
-    return qnext
-
-def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step=0.1, viz=None):
-
-    # Run the algorithms that outputs values in robot.data
-    pin.framesForwardKinematics(robot.model, robot.data, q)
-    pin.computeJointJacobians(robot.model, robot.data, q)
-
-    """ Right Hand Task """
-
-    # Compute the Jacobians for the left and right hand
-    rh_frame_id = robot.model.getFrameId(RIGHT_HAND)
-    jacobian_rh = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, rh_frame_id, pin.LOCAL)
-
-    lh_frame_id = robot.model.getFrameId(LEFT_HAND)
-    jacobian_lh = pin.computeFrameJacobian(robot.model, robot.data, qcurrent, lh_frame_id, pin.LOCAL)
-
-    # Get the error between the robot hands and the cube
-    x_dot = get_hand_cube_errors(robot, qcurrent, cube).flatten()
-    x_dot_lh, x_dot_rh = x_dot[:3], x_dot[3:]
-
-    vq_right = pinv(jacobian_rh) @ x_dot_rh
-
-    # Computing the Projector Matrix
-    projector_rh = np.eye(robot.nv) - pinv(jacobian_rh) @ jacobian_rh
-
-    # Computing the Left Hand Task
-    vq_left = vq_right + pinv(jacobian_lh @ projector_rh) @ (x_dot_lh - jacobian_lh @ vq_right)
-
-    vq = vq_left + vq_right
-
-    qnext = pin.integrate(robot.model, qcurrent, vq * time_step)
+    qnext = pin.integrate(robot.model, qcurrent, q_dot * time_step)
 
     # If the joint positions is not respecting the joint limits, project it back
     if jointlimitsviolated(robot, qnext):
         qnext = projecttojointlimits(robot, qnext)
 
-    if viz:
-        viz.display(qnext)
-        time.sleep(time_step)
+    # Check for convergence using the norm of x_dot
+    if norm(x_dot) < EPSILON:
+        cube_reached = True
 
-    return qnext
+    return qnext, cube_reached
 
-
-
-# Solves the inverse kinematics problem using the quadprog optimization until convergence
-def inverse_kinematics_quadprog(robot, qcurrent, cube, cubetarget, viz=None):
-
-    while True:
-        qnext = inverse_kinematics_step(robot, qcurrent, cube, viz=viz)
-        # check if the joint limits are violated
-        if jointlimitsviolated(robot, qnext):
-            qnext = projecttojointlimits(robot, qnext)
-
-        # check if we have reached the target configuration
-        x_dot = get_hand_cube_errors(robot, qnext, cube)
-        x_lh, x_rh = x_dot[:3], x_dot[3:]
-        if np.linalg.norm(x_lh) < EPSILON and np.linalg.norm(x_rh) < EPSILON:
-            break
-
-    # check if the configuration is in collision
-    if collision(robot, qnext):
-        return qcurrent, False
-
-    return qnext, True
-
-
-def inverse_kinematics_analytic(robot, qcurrent, cube, cubetarget, viz=None):
-    setcubeplacement(robot, cube, cubetarget)
-
-    q = qcurrent.copy()
+# Solves inverse kinematics using pseudo-inverse and nullspace projection
+def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step):
 
     cube_reached = False
-    for i in range(500):
-        q = inverse_kinematics_analytic_step(robot, q, cube, time_step=0.01, viz=viz)
-        x_dot = get_hand_cube_errors(robot, q, cubetarget)
-        x_lh, x_rh = x_dot[:3], x_dot[3:]
-        # check if the position of the cube is reached
-        if norm(x_rh) < EPSILON and norm(x_lh) < EPSILON:
-            # if the final joint position is not in collision, return success
-            if not collision(robot, q):
-                return q, True
+    jacobian = get_hand_jacobian(robot, qcurrent)
+    jacobian_rh, jacobian_lh = jacobian[6:, :], jacobian[:6, :]
 
-    return qcurrent, False
+    x_dot = get_hand_cube_errors(robot, qcurrent, cube)
+    x_dot_lh, x_dot_rh = x_dot[:6], x_dot[6:]
 
-def inverse_kinematics(robot, qcurrent, cube, cubetarget, viz=None, interpolation_check=False):
-    """
-    Returns a collision free configuration grasping a cube at a specific location and a success flag
+    # Use Nullspace Projection to compute the joint velocities
+    q_dot_rh = pinv(jacobian_rh) @ x_dot_rh
 
-    interpolation check: bool - > if set to true, every intermediate configuration is checked for collision
+    # Computing the Projector Matrix
+    projector_rh = np.eye(robot.nv) - pinv(jacobian_rh) @ jacobian_rh
 
-    """
-    setcubeplacement(robot, cube, cubetarget)
+    # Computing the Left Hand Task
+    q_dot_lh = q_dot_rh + pinv(jacobian_lh @ projector_rh) @ (x_dot_lh - jacobian_lh @ q_dot_rh)
+    q_dot = q_dot_lh + q_dot_rh
 
-    q = qcurrent.copy()
-    DT = 1e-1
+    # Integrate the joint velocities to get the next joint position
+    qnext = pin.integrate(robot.model, qcurrent, q_dot * time_step)
 
+    # If the joint positions is not respecting the joint limits, project it back
+    if jointlimitsviolated(robot, qnext):
+        qnext = projecttojointlimits(robot, qnext)
+
+    # check for convergence to target
+    if norm(q_dot_rh) < EPSILON and norm(q_dot_lh) < EPSILON:
+        cube_reached = True
+
+    return qnext, cube_reached
+
+
+def inverse_kinematics(robot, q, cube, time_step, method='quadprog', interpolation_check=False, viz=None):
+
+    print("Computing grasp pose using", method)
     cube_reached = False
+    # for 10 seconds
+    for i in range(1000):
 
-    # for 60 seconds try to find
-    for i in range(500):
+        if method == 'quadprog':
+            q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
 
-        # Run the algorithms that outputs values in robot.data
-        pin.framesForwardKinematics(robot.model,robot.data,q)
-        pin.computeJointJacobians(robot.model,robot.data,q)
-
-        """ Right Hand Task """
-
-        rh_frameid = robot.model.getFrameId(RIGHT_HAND)
-        oMrh = robot.data.oMf[rh_frameid]
-        oMcubeR = getcubeplacement(cube, RIGHT_HOOK)
-        rhMcubeR = oMrh.inverse()*oMcubeR
-        # 6D error between LH frame and cube
-        rh_nu = pin.log(rhMcubeR).vector
-        # Compute the Jacobian of the right hand
-        Jrh = pin.computeFrameJacobian(robot.model,robot.data,q,rh_frameid,pin.LOCAL)
-        # Control Law Using Inverse Differential Kinematics
-
-
-        """ Left Hand Task """
-
-        lh_frameid = robot.model.getFrameId(LEFT_HAND)
-        oMlh = robot.data.oMf[lh_frameid]
-        oMcubeL = getcubeplacement(cube, LEFT_HOOK)
-        lhMcubeL = oMlh.inverse()*oMcubeL
-        # 6D error between LH frame and cube
-        lh_nu = pin.log(lhMcubeL).vector
-        # Compute the Jacobian of the left hand
-        Jlh = pin.computeFrameJacobian(robot.model,robot.data,q,lh_frameid,pin.LOCAL)
-
-        vq_right = pinv(Jrh) @ rh_nu
-
-        # Computing the Projector Matrix
-        Prh = np.eye(robot.nv) - pinv(Jrh) @ Jrh
-
-        # Computing the Left Hand Task
-        vq_left = vq_right + pinv(Jlh @ Prh) @ (lh_nu - Jlh @ vq_right)
-
-        vq = vq_left + vq_right
-
-        q = pin.integrate(robot.model,q, vq * DT)
-
-        # If the joint positions is not respecting the joint limits, project it back
-        if jointlimitsviolated(robot, q):
-            q = projecttojointlimits(robot, q)
+        elif method == 'analytic':
+            q, cube_reached = inverse_kinematics_analytic_step(robot, q, cube, time_step)
 
         # we can project to fix joint limits, but we can't project to fix collisions - GAME OVER
         if interpolation_check:
@@ -347,46 +241,26 @@ def inverse_kinematics(robot, qcurrent, cube, cubetarget, viz=None, interpolatio
 
         if viz:
             viz.display(q)
-            time.sleep(DT)
+            time.sleep(time_step)
 
-        # check if the position of the cube is reached
-        if norm(rh_nu) < EPSILON and norm(lh_nu) < EPSILON:
-            cube_reached = True
-            break
+        if cube_reached and not collision(robot, q):
+            return q, True
 
-    # if the final joint position is in collision, return failure
-    if collision(robot, q):
-        return robot.q0, False
+    return robot.q0, False
 
-    # if the final joint position does not reach the cube, return failure
-    if not cube_reached:
-        return robot.q0, False
-
-    # otherwise, the joint position respects the constraints and the cube is reached
-    return q, True
 
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
-    #TODO implement
-    print ("TODO: implement me")
 
-    # Option 1: Inverse Kinematics via Quadprog Optimization
-    #q_current = qcurrent.copy()
-    #qnext, success = inverse_kinematics_quadprog(robot, q_current, cube, cubetarget, viz)
+    # Time step for the inverse kinematics
+    time_step = 0.1
+    # Method: quadprog or analytic
+    method = "quadprog"
+    # Calculate the grasp pose, and the success flag
+    qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step, method, viz=viz)
 
-    # Option 2: Inverse Kinematics via Analytic Solution
-    #q_current = qcurrent.copy()
-    #qnext, success = inverse_kinematics_analytic(robot, q_current, cube, cubetarget, viz)
-
-    # Option 3: Inverse Kinematics via Analytic Solution
-    q_current = qcurrent.copy()
-    qnext, success = inverse_kinematics(robot, q_current, cube, cubetarget, viz)
-
-    if success:
-        return qnext, True
-
-    return robot.q0, False
+    return qnext, success
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -395,9 +269,10 @@ if __name__ == "__main__":
     
     q = robot.q0.copy()
     
-    q0,successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
-    qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
-    
+    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    print(successinit)
+    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
+    print(successend)
     updatevisuals(viz, robot, cube, q0)
     
     
