@@ -256,7 +256,8 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     # Time step for the inverse kinematics
     time_step = 0.1
     # Method: quadprog or analytic
-    method = "quadprog"
+    # method = "quadprog"
+    method = "analytic"
     # Calculate the grasp pose, and the success flag
     qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step, method, viz=viz)
 
