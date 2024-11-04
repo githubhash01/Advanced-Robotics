@@ -207,17 +207,12 @@ class InverseKinematicsSolver:
 
         cube_reached = False
 
-        if not maintain_grip:
-            x_dot = self.get_full_hand_cube_errors(q_current).flatten()
-            # only retain the first 12 values of the x_dot vector
-            x_dot = x_dot[:12]
-            jacobian = self.get_full_hand_jacobian(q_current)
-            # drop the last 6 rows of the jacobian matrix
-            jacobian = jacobian[:12, :]
+        x_dot = self.get_full_hand_cube_errors(q_current).flatten()
+        jacobian = self.get_full_hand_jacobian(q_current)
 
-        else:
-            x_dot = self.get_full_hand_cube_errors(q_current).flatten()
-            jacobian = self.get_full_hand_jacobian(q_current)
+        if not maintain_grip:
+            x_dot = x_dot[:12]
+            jacobian = jacobian[:12, :]
 
         # Compute the Hessian matrix H and vector c for the QP objective function
         H = jacobian.T @ jacobian
@@ -236,9 +231,9 @@ class InverseKinematicsSolver:
         if jointlimitsviolated(self.robot, q_next):
             q_next = projecttojointlimits(self.robot, q_next)
 
-        # retrieve the first 2/3 of the joint velocities (i.e. the left hand and right hand joint velocities)
-        q_dot_lh_rh = q_dot[:12]
-        if norm(q_dot_lh_rh) < EPSILON:
+        # TODO - check this is strict enough
+        q_dot_lh, q_dot_rh = q_dot[:6], q_dot[6:]
+        if norm(q_dot_rh) < EPSILON and norm(q_dot_lh) < EPSILON:
             cube_reached = True
 
         return q_next, cube_reached
@@ -305,6 +300,7 @@ class InverseKinematicsSolver:
 
         """
 
+
         cube_reached = False
 
         q_next = self.q_current
@@ -317,15 +313,17 @@ class InverseKinematicsSolver:
             elif method == 'analytic':
                 q_next, cube_reached = self.inverse_kinematics_analytic_step(self.q_current)
 
-            if self.viz:
-                self.viz.display(self.q_current)
-                time.sleep(self.time_step)
+
 
             if interpolated and collision(self.robot, q_next):
                 # return with the current configuration if the robot is in collision
                 return self.q_current, False
 
             self.q_current = q_next
+
+            if self.viz:
+                self.viz.display(self.q_current)
+                time.sleep(self.time_step)
 
             if cube_reached and not collision(self.robot, self.q_current):
                 return self.q_current, True
