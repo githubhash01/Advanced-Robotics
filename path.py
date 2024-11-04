@@ -13,9 +13,10 @@ from pinocchio.utils import rotate
 from config import LEFT_HAND, RIGHT_HAND, EPSILON
 import time
 
-MAX_DISTANCE = 0.5  # TODO - determine a good value for this and clean up the code
+MAX_DISTANCE = 0.08  # TODO - determine a good value for this and clean up the code
 INTERPOLATION_DISTANCE = 0.05
 NR_INTERPOLATIONS = int(MAX_DISTANCE // INTERPOLATION_DISTANCE) + 1
+NR_INTERPOLATIONS = 1 # TODO - justify using this by leveraging enhanced quadprog
 
 """
 Helper Functions
@@ -127,24 +128,6 @@ def build_node_path(tree):
         current_node = current_node.parent
 
     node_path = node_path[::-1]
-
-    node_path = shortcut(node_path)  # TODO - uncomment this line to use shortcuts
-    # now with the shortcut, we can add all the nodes in between using linear interpolation
-    new_node_path = []
-
-    q_current = node_path[0].configuration
-
-    for i in range(len(node_path) - 1):
-        node_1 = node_path[i]
-        node_2 = node_path[i+1]
-        distance = distance_cube_to_cube(node_1.cube_placement, node_2.cube_placement)
-        interpolations = int(distance // INTERPOLATION_DISTANCE) + 1
-        for j in range(interpolations):
-            cube_current = linear_interpolation(node_1.cube_placement, node_2.cube_placement, j / interpolations)
-            q_current, success = computeqgrasppose(robot, q_current, cube, cube_current, viz=None)
-
-            new_node = ConfigurationNode(node_1, q_current, cube_current)
-            new_node_path.append(new_node)
 
     return node_path
 
