@@ -271,7 +271,6 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distan
 
         q_next, cube_reached = inverse_kinematics_quadprog_step(robot, q_current, cube, time_step=0.1)
 
-
         # Constraint: Robot is not in collision
         if collision(robot, q_next):
             return q_current, False
@@ -323,10 +322,10 @@ if __name__ == "__main__":
     q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
     print(successinit)
 
-    ANOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.5, -0.3, 0.95]))
+    ANOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.5, -0.4, 1.05]))
     print(CUBE_PLACEMENT)
     qe, successend = compute_grasp_pose_constrained(robot, q0, cube, ANOTHER_CUBE_PLACEMENT, 10, viz=viz)
     print(successend)
-    updatevisuals(viz, robot, cube, q0)
+    #updatevisuals(viz, robot, cube, q0)
 
 
