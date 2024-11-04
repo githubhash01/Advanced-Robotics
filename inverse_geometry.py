@@ -106,7 +106,22 @@ class InverseKinematicsSolver:
         self.cube_target = cube_target
         self.viz = viz
         self.time_step = time_step
-        self.method = 'quadprog' # 'quadprog' or 'analytic'
+        self.initial_T_lh_rh = self.get_initial_relative_transformation(q_current)
+
+    def get_initial_relative_transformation(self, q_initial):
+        """
+        Compute the initial relative transformation between the left and right hands.
+        """
+        pin.framesForwardKinematics(self.robot.model, self.robot.data, q_initial)
+        lh_frame_id = self.robot.model.getFrameId(LEFT_HAND)
+        rh_frame_id = self.robot.model.getFrameId(RIGHT_HAND)
+        oMlh = self.robot.data.oMf[lh_frame_id]
+        oMrh = self.robot.data.oMf[rh_frame_id]
+
+        # Compute the initial transformation from left hand to right hand
+        initial_T_lh_rh = oMlh.inverse() * oMrh
+
+        return initial_T_lh_rh
 
     def get_hand_cube_errors(self, q_current):
         """
@@ -139,6 +154,40 @@ class InverseKinematicsSolver:
         x_dot = np.hstack((x_dot_lh, x_dot_rh))
         return x_dot
 
+
+    def get_full_hand_cube_errors(self, q_current):
+
+        pin.framesForwardKinematics(self.robot.model, self.robot.data, q_current)
+
+        # 6D error between right hand and target placement on the cube
+        rh_frame_id = self.robot.model.getFrameId(RIGHT_HAND)
+        oMrh = self.robot.data.oMf[rh_frame_id]
+        oMcubeR = getcubeplacement(self.cube, RIGHT_HOOK)
+        rhMcubeR = oMrh.inverse() * oMcubeR
+        x_dot_rh = pin.log(rhMcubeR).vector
+
+        # 6D error between right hand and target placement on the cube
+        lh_frameid = self.robot.model.getFrameId(LEFT_HAND)
+        oMlh = self.robot.data.oMf[lh_frameid]
+        oMcubeL = getcubeplacement(self.cube, LEFT_HOOK)
+        lhMcubeL = oMlh.inverse() * oMcubeL
+        x_dot_lh = pin.log(lhMcubeL).vector
+
+
+        # get the current relative transformation between the left and right hands
+        T_LR_current = oMlh.inverse() * oMrh
+
+        # get the error between the current relative transformation and the initial relative transformation
+        relative_error = pin.log(self.initial_T_lh_rh.inverse() * T_LR_current).vector
+
+        # weight the relative error less than the hand errors
+        relative_error = 0.2 * relative_error
+
+        x_dot = np.hstack((x_dot_lh, x_dot_rh, relative_error))
+
+        return x_dot
+
+
     def get_hand_jacobian(self, q_current):
         """
         Input:
@@ -159,6 +208,20 @@ class InverseKinematicsSolver:
         jacobian = np.vstack((jacobian_lh, jacobian_rh))
         return jacobian
 
+
+    def get_full_hand_jacobian(self, q_current):
+        pin.computeJointJacobians(self.robot.model, self.robot.data, q_current)
+        rh_frameid = self.robot.model.getFrameId(RIGHT_HAND)
+        lh_frameid = self.robot.model.getFrameId(LEFT_HAND)
+        jacobian_rh = pin.computeFrameJacobian(self.robot.model, self.robot.data, q_current, rh_frameid, pin.LOCAL)
+        jacobian_lh = pin.computeFrameJacobian(self.robot.model, self.robot.data, q_current, lh_frameid, pin.LOCAL)
+
+        jacobian_relative = jacobian_rh - jacobian_lh
+        jacobian = np.vstack((jacobian_lh, jacobian_rh, jacobian_relative))
+
+        return jacobian
+
+
     def inverse_kinematics_quadprog_step(self, q_current):
         """
         Input:
@@ -176,28 +239,36 @@ class InverseKinematicsSolver:
         """
 
         cube_reached = False
-        x_dot = self.get_hand_cube_errors(q_current).flatten()
-        jacobian = self.get_hand_jacobian(q_current)
+
+        #x_dot = self.get_hand_cube_errors(q_current).flatten()
+        #jacobian = self.get_hand_jacobian(q_current)
+
+        x_dot = self.get_full_hand_cube_errors(q_current).flatten()
+        jacobian = self.get_full_hand_jacobian(q_current)
 
         # Compute the Hessian matrix H and vector c for the QP objective function
         H = jacobian.T @ jacobian
         c = jacobian.T @ x_dot
 
         # Compute the joint velocity constraints
-        q_dot_min = (self.robot.model.lowerPositionLimit - q_current) / self.time_step
-        q_dot_max = (q_current - self.robot.model.upperPositionLimit) / self.time_step
-        G = np.vstack((np.eye(self.robot.model.nq), np.eye(self.robot.model.nq)))
-        h = np.hstack((q_dot_max, q_dot_min))
+        #q_dot_min = (self.robot.model.lowerPositionLimit - q_current) / self.time_step
+        #q_dot_max = (q_current - self.robot.model.upperPositionLimit) / self.time_step
+        #G = np.vstack((np.eye(self.robot.model.nq), np.eye(self.robot.model.nq)))
+        #h = np.hstack((q_dot_max, q_dot_min))
 
         # Get the next joint velocities using quadprog
-        q_dot = quadprog_optimization(H, c, G, h)
+        q_dot = quadprog_optimization(H, c)
         q_next = pin.integrate(self.robot.model, q_current, q_dot * self.time_step)
 
         if jointlimitsviolated(self.robot, q_next):
             q_next = projecttojointlimits(self.robot, q_next)
 
-        if norm(x_dot) < EPSILON:
+
+        # retrieve the first 2/3 of the joint velocities (i.e. the left hand and right hand joint velocities)
+        q_dot_lh_rh = q_dot[:12]
+        if norm(q_dot_lh_rh) < EPSILON:
             cube_reached = True
+
         return q_next, cube_reached
 
     def inverse_kinematics_analytic_step(self, q_current):
@@ -243,7 +314,7 @@ class InverseKinematicsSolver:
 
         return q_next, cube_reached
 
-    def inverse_kinematics(self):
+    def inverse_kinematics(self, method="quadprog"):
         """
         Input:
 
@@ -264,9 +335,9 @@ class InverseKinematicsSolver:
         cube_reached = False
 
         for i in range(1000):
-            if self.method == 'quadprog':
+            if method == 'quadprog':
                 self.q_current, cube_reached = self.inverse_kinematics_quadprog_step(self.q_current)
-            elif self.method == 'analytic':
+            elif method == 'analytic':
                 self.q_current, cube_reached = self.inverse_kinematics_analytic_step(self.q_current)
             if self.viz:
                 self.viz.display(self.q_current)
@@ -286,7 +357,7 @@ Code Given in the Lab
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     setcubeplacement(robot, cube, cubetarget)
     solver = InverseKinematicsSolver(robot, qcurrent, cube, cubetarget, time_step=0.1,  viz=viz)
-    qnext, success = solver.inverse_kinematics()
+    qnext, success = solver.inverse_kinematics(method="quadprog")
     return qnext, success
             
 if __name__ == "__main__":
@@ -296,11 +367,21 @@ if __name__ == "__main__":
     
     q = robot.q0.copy()
 
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    #q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    start_time = time.time()
+    solver = InverseKinematicsSolver(robot, q, cube, CUBE_PLACEMENT, time_step=0.2, viz=None)
+    q0, successinit = solver.inverse_kinematics(method="analytic")
     print(successinit)
+    end_time = time.time()
+    print("Execution Time: ", end_time - start_time)
 
-    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET,  viz)
+    setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
+    start_time = time.time()
+    solver = InverseKinematicsSolver(robot, q0, cube, ANOTHER_CUBE_PLACEMENT, time_step=0.2, viz=None)
+    qe, successend = solver.inverse_kinematics(method="quadprog")
     print(successend)
+    end_time = time.time()
+    print("Execution Time: ", end_time - start_time)
     updatevisuals(viz, robot, cube, q0)
     
     
