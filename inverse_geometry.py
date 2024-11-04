@@ -305,7 +305,8 @@ class InverseKinematicsSolver:
 
         q_next = self.q_current
 
-        for i in range(1000):
+        # TODO - Avoid using magic numbers
+        for i in range(500):
 
             if method == 'quadprog':
                 q_next, cube_reached = self.inverse_kinematics_quadprog_step(self.q_current, maintain_grip)

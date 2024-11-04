@@ -12,15 +12,22 @@ from numpy.linalg import pinv
 from pinocchio.utils import rotate
 from config import LEFT_HAND, RIGHT_HAND, EPSILON
 import time
+import random
 
-MAX_DISTANCE = 0.2 # TODO - determine a good value for this and clean up the code
-INTERPOLATION_DISTANCE = 0.05
-NR_INTERPOLATIONS = int(MAX_DISTANCE // INTERPOLATION_DISTANCE) + 1
-NR_INTERPOLATIONS = 1 # TODO - justify using this by leveraging enhanced quadprog
+# import the inverse kinematics class from the inverse_geometry.py file
+from inverse_geometry import InverseKinematicsSolver
 
 """
 Helper Functions
 """
+
+
+# additional helper function to display the path with the cube as well
+def display_node_path(robot, node_path, dt, viz):
+    for node in node_path:
+        setcubeplacement(robot, cube, node.cube_placement)
+        viz.display(node.configuration)
+        time.sleep(dt )
 
 class ConfigurationNode:
     def __init__(self, parent, configuration, cube_placement):
@@ -30,6 +37,13 @@ class ConfigurationNode:
 
 
 class PathFinder:
+
+    # Static constants
+
+    MAX_DISTANCE = 0.2 # TODO - determine a good value for this and clean up the code
+    INTERPOLATION_DISTANCE = 0.05
+    NR_INTERPOLATIONS = int(MAX_DISTANCE // INTERPOLATION_DISTANCE) + 1
+
 
     def __init__(self, qinit, qgoal, cubeplacementq0, cubeplacementqgoal):
         self.qinit = qinit
@@ -42,20 +56,33 @@ class PathFinder:
         self.path_found = False
         self.node_path = []
 
-    def distance_cube_to_cube(self, cube_placement_a, cube_placement_b):
+    @staticmethod
+    def distance_cube_to_cube(cube_placement_a, cube_placement_b):
         return np.linalg.norm(cube_placement_a.translation - cube_placement_b.translation)
 
-    def generate_random_cube_placement(self):
+    @staticmethod
+    def generate_random_cube_placement():
         while True:
+            # TODO - pick these values more deliberately
             random_z = np.random.uniform(0.93, 1.25, 1)[0]
             random_x = np.random.uniform(0.2, 0.5, 1)[0]
             random_y = np.random.uniform(-0.5, 0.5, 1)[0]
+
             random_cube_placement = pin.SE3(rotate('z', 0.), np.array([random_x, random_y, random_z]))
             setcubeplacement(robot, cube, random_cube_placement)
             collisions = pin.computeCollisions(cube.collision_model, cube.collision_data, False)
             if not collisions:
                 break
         return random_cube_placement
+
+    @staticmethod
+    def linear_interpolation(cube_placement_a, cube_placement_b, t):
+
+        pos_a = cube_placement_a.translation
+        pos_b = cube_placement_b.translation
+        new_pos = pos_a + t * (pos_b - pos_a)
+        interpolated_cube_placement = pin.SE3(cube_placement_a.rotation, new_pos)
+        return interpolated_cube_placement
 
     def get_nearest_node(self, cube_placement):
         nearest_node = None
@@ -66,27 +93,23 @@ class PathFinder:
                 minimum_distance = self.distance_cube_to_cube(node.cube_placement, cube_placement)
         return nearest_node
 
-    def linear_interpolation(self, cube_placement_a, cube_placement_b , t):
-
-        pos_a = cube_placement_a.translation
-        pos_b = cube_placement_b.translation
-        new_pos = pos_a + t * (pos_b - pos_a)
-        interpolated_cube_placement = pin.SE3(cube_placement_a.rotation, new_pos)
-        return interpolated_cube_placement
-
-    def get_next_node(self, nearest_node, random_cube_placement, interpolations, max_distance):
+    # TODO - refactor this to be more readable
+    # This uses linear interpolation - perhaps less favorable than enhanced quadprog
+    def get_next_node(self, nearest_node, random_cube_placement):
 
         current_distance = self.distance_cube_to_cube(nearest_node.cube_placement, random_cube_placement)
 
-        if current_distance > max_distance:
-            random_cube_placement = self.linear_interpolation(nearest_node.cube_placement, random_cube_placement, max_distance / current_distance)
-            current_distance = max_distance
+        if current_distance > PathFinder.MAX_DISTANCE:
+            t = PathFinder.MAX_DISTANCE / current_distance
+            random_cube_placement = self.linear_interpolation(nearest_node.cube_placement, random_cube_placement, t)
+            current_distance = PathFinder.MAX_DISTANCE
 
         current_node = ConfigurationNode(nearest_node, nearest_node.configuration, nearest_node.cube_placement)
-        dt = current_distance / interpolations
+        dt = current_distance / PathFinder.NR_INTERPOLATIONS
 
-        for i in range(interpolations):
-            cube_next = self.linear_interpolation(nearest_node.cube_placement, random_cube_placement, ((i + 1) * dt) / current_distance)
+        for i in range(PathFinder.NR_INTERPOLATIONS):
+            t = ((i + 1) * dt) / current_distance
+            cube_next = self.linear_interpolation(nearest_node.cube_placement, random_cube_placement, t)
             setcubeplacement(robot, cube, cube_next)
             if pin.computeCollisions(cube.collision_model, cube.collision_data, False):
                 return current_node
@@ -94,31 +117,82 @@ class PathFinder:
             if not success:
                 return current_node
             current_node = ConfigurationNode(nearest_node, q_next, cube_next)
+
         return current_node
 
-    def valid_edge(self, nearest_node, goal_node, interpolations, max_distance):
-        next_node = self.get_next_node(nearest_node, goal_node.cube_placement, interpolations, max_distance)
+    # An enhanced quadprog approach to getting the next node
+    def get_next_node_enhanced(self, nearest_node, random_cube_placement):
+        """
+        The original idea behind get_next_node using linear interpolation, was to ensure that there exists
+        a collision free path between the nearest node and the random cube placement. However, this approach
+        is inefficient as it requires doing inverse kinematics repeatedly. A more efficient approach is to check
+        for collisions, whilst doing the inverse kinematics.
+
+        The issue with this idea originally, was ensuring that the robot's end effector pose was such that it was
+        constantly gripping the cube. However, with an enhanced numerical technique using quadprog, we can ensure the
+        end effectors are always gripping the cube (within some tolerance) and check for collision on the fly.
+
+        """
+
+        # Clip the random cube placement to be within the maximum distance
+        current_distance = self.distance_cube_to_cube(nearest_node.cube_placement, random_cube_placement)
+        if current_distance > PathFinder.MAX_DISTANCE:
+            t = PathFinder.MAX_DISTANCE / current_distance
+            random_cube_placement = self.linear_interpolation(nearest_node.cube_placement, random_cube_placement, t)
+
+
+
+        # Get the InverseKinematicsSolver
+        ik_solver = InverseKinematicsSolver(robot, nearest_node.configuration, cube, random_cube_placement, time_step=0.2)
+        q_final, success = ik_solver.inverse_kinematics(method='quadprog', maintain_grip=True, interpolated=True)
+
+        # find the middle point between the left hand and right hand and set that as the cube placement
+        left_hand = robot.framePlacement(q_final, robot.model.getFrameId(LEFT_HAND))
+        right_hand = robot.framePlacement(q_final, robot.model.getFrameId(RIGHT_HAND))
+        middle_point = (left_hand.translation + right_hand.translation) / 2
+
+        final_cube_placement = pin.SE3(rotate('z', 0.), middle_point)
+
+        return ConfigurationNode(nearest_node, q_final, final_cube_placement)
+
+
+
+    def valid_edge(self, nearest_node, goal_node):
+        next_node = self.get_next_node(nearest_node, goal_node.cube_placement)
         cube_distance = self.distance_cube_to_cube(next_node.cube_placement, goal_node.cube_placement)
         return cube_distance <= EPSILON
 
     def build_RRT(self):
 
+        # TODO - add a termination condition and check this
         for iteration in range(2000):
 
-            random_cube_placement = self.generate_random_cube_placement()
+            if random.random() < 0.2:  # Goal-biasing with 20% probability
+                random_cube_placement = self.goal_node.cube_placement
+            else:
+                random_cube_placement = self.generate_random_cube_placement()
+
+            #random_cube_placement = self.generate_random_cube_placement()
             nearest_node = self.get_nearest_node(random_cube_placement)
-            new_node = self.get_next_node(nearest_node, random_cube_placement, NR_INTERPOLATIONS, MAX_DISTANCE)
+
+            #new_node = self.get_next_node(nearest_node, random_cube_placement)
+            #self.tree.append(new_node)
+
+            # enhanced quadprog approach
+            new_node = self.get_next_node_enhanced(nearest_node, random_cube_placement)
             self.tree.append(new_node)
+
+
             q_rand = new_node.configuration
 
-            if self.valid_edge(new_node, self.goal_node, NR_INTERPOLATIONS, MAX_DISTANCE):
+            if self.valid_edge(new_node, self.goal_node):
                 q_goal, success = computeqgrasppose(robot, q_rand, cube, self.goal_node.cube_placement, viz=None)
 
                 if success:
-
                     self.goal_node = ConfigurationNode(new_node, q_goal, self.goal_node.cube_placement)
                     self.tree.append(self.goal_node)
                     self.path_found = True
+                    print("Path found")
                     break
 
     def build_node_path(self):
@@ -129,7 +203,7 @@ class PathFinder:
             self.node_path.append(current_node)
             current_node = current_node.parent
 
-        self.node_path = self.node_path[::-1]
+        self.node_path = reversed(self.node_path)
 
     def find_path(self):
         self.build_RRT()
@@ -143,154 +217,6 @@ class PathFinder:
 
 
 
-# Returns the distance between two cube placements
-def distance_cube_to_cube(cube_placement_a, cube_placement_b):
-    return np.linalg.norm(cube_placement_a.translation - cube_placement_b.translation)
-
-# Generate a random cube placement not in collision
-def generate_random_cube_placement():
-    # Generate a random cube placement not in collision
-
-    while True:
-        # TODO -  avoid hardcdoing these values
-        random_z = np.random.uniform(0.93, 1.25, 1)[0]
-        random_x = np.random.uniform(0.2, 0.5, 1)[0]
-        random_y = np.random.uniform(-0.5, 0.5, 1)[0]
-
-        CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([random_x, random_y, random_z]))
-        setcubeplacement(robot, cube, CUBE_PLACEMENT)
-
-        # Check cube is not in collision with obstacles or table
-        collisions = pin.computeCollisions(cube.collision_model, cube.collision_data, False)
-        if not collisions:
-            break
-
-    return CUBE_PLACEMENT
-
-# Returns the nearest node in the tree to the given cube placement
-def get_nearest_node(tree, cube_placement):
-    nearest_node = None
-    minimum_distance = float('inf')
-    for node in tree:
-        if distance_cube_to_cube(node.cube_placement, cube_placement) < minimum_distance:
-            nearest_node = node
-            minimum_distance = distance_cube_to_cube(node.cube_placement, cube_placement)
-
-    return nearest_node
-
-# Returns a new cube placement that is t fraction of the way from cube_placement_a to cube_placement_b
-def linear_interpolation(cube_placement_a, cube_placement_b , t):
-
-    # Extract the translation vectors (positions) of cube_placement_a and cube_placement_b
-    pos_a = cube_placement_a.translation  # Position of cube_placement_a
-    pos_b = cube_placement_b.translation  # Position of cube_placement_b
-
-    # Compute the new position for the interpolated cube placement
-    new_pos = pos_a + t * (pos_b - pos_a)
-
-    # Create a new SE3 matrix for the interpolated cube placement, keeping same orientation as cube_placement_a
-    interpolated_cube_placement = pin.SE3(cube_placement_a.rotation, new_pos)
-
-    return interpolated_cube_placement
-
-# Returns a new node that is as close as possible to the random_cube_placement while avoiding collisions
-def get_next_node(nearest_node, random_cube_placement, interpolations, max_distance):
-
-    current_distance = distance_cube_to_cube(nearest_node.cube_placement, random_cube_placement)
-
-    if current_distance > max_distance:
-        random_cube_placement = linear_interpolation(nearest_node.cube_placement, random_cube_placement, max_distance / current_distance)
-        current_distance = max_distance
-
-    current_node = ConfigurationNode(nearest_node, nearest_node.configuration, nearest_node.cube_placement)
-
-    dt = current_distance / interpolations
-
-    for i in range(interpolations):
-
-        cube_next = linear_interpolation(nearest_node.cube_placement, random_cube_placement, ((i + 1) * dt) / current_distance)
-        setcubeplacement(robot, cube, cube_next)
-
-        if pin.computeCollisions(cube.collision_model, cube.collision_data, False):
-            return current_node
-
-        q_next, success = computeqgrasppose(robot, nearest_node.configuration, cube, cube_next, viz=None)
-
-        if not success:
-            return current_node
-
-        current_node = ConfigurationNode(nearest_node, q_next, cube_next)
-
-    return current_node
-
-def valid_edge(nearest_node, goal_node, interpolations, max_distance):
-
-    next_node = get_next_node(nearest_node, goal_node.cube_placement, interpolations, max_distance)
-
-    if abs(distance_cube_to_cube(next_node.cube_placement, goal_node.cube_placement)) > EPSILON:
-        return False
-    else:
-        return True
-
-
-# TODO - use shortcuts
-def build_node_path(tree):
-    node_path = []
-    current_node = tree[-1]
-    while current_node is not None:
-        node_path.append(current_node)
-        current_node = current_node.parent
-
-    node_path = node_path[::-1]
-
-    return node_path
-
-def shortcut(node_path):
-    for i, node in enumerate(node_path):
-        for j in reversed(range(i+1,len(node_path))):
-            node_2 = node_path[j]
-            new_node = get_next_node(node, node_2.cube_placement, interpolations=NR_INTERPOLATIONS, max_distance=MAX_DISTANCE)
-            if valid_edge(node, new_node, interpolations=NR_INTERPOLATIONS, max_distance=MAX_DISTANCE):
-                node_path = node_path[:i+1] + [new_node] + node_path[j:]
-                return node_path
-
-    return node_path
-
-# Does RRT to find a path from start_node to goal_node and a success flag path_found
-def build_RRT(start_node, goal_node, max_iterations):
-    tree = [start_node]
-    path_found = False
-
-    for iteration in range(max_iterations):
-
-        random_cube_placement = generate_random_cube_placement()
-        nearest_node = get_nearest_node(tree, random_cube_placement)
-
-
-        new_node = get_next_node(nearest_node, random_cube_placement, interpolations=NR_INTERPOLATIONS, max_distance=MAX_DISTANCE)
-
-        tree.append(new_node)
-
-        q_rand = new_node.configuration
-
-        # if the distance between target cube and current cube is less than max_distance, then we can go to the goal configuration
-        if valid_edge(new_node, goal_node, interpolations=NR_INTERPOLATIONS, max_distance=MAX_DISTANCE):
-            q_goal, success = computeqgrasppose(robot, q_rand, cube, goal_node.cube_placement, viz=None)
-            if success:
-                goal_node = ConfigurationNode(new_node, q_goal, goal_node.cube_placement)
-                tree.append(goal_node)
-                path_found = True
-                break
-
-    return tree, path_found
-
-# additional helper function to display the path with the cube as well
-def display_node_path(robot, node_path, dt, viz):
-    for node in node_path:
-        setcubeplacement(robot, cube, node.cube_placement)
-        viz.display(node.configuration)
-        time.sleep(dt )
-
 """
 Code given in Lab 
 """
@@ -299,15 +225,10 @@ Code given in Lab
 def computepath(qinit, qgoal, cubeplacementq0, cubeplacementqgoal):
 
     path_finder = PathFinder(qinit, qgoal, cubeplacementq0, cubeplacementqgoal)
-    node_path = path_finder.find_path()
+    node_path =  path_finder.find_path()
 
-    if path_finder.path_found:
-        print("Path found")
-    else:
-        print("Path not found")
-
+    # TODO - ensure we actually return a configuration path, not a node path
     return node_path
-
 
 def displaypath(robot,path,dt,viz):
     for q in path:
@@ -334,5 +255,5 @@ if __name__ == "__main__":
     node_path = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
     
     #displaypath(robot,path,dt=0.5,viz=viz) #you ll probably want to lower dt TODO - change this back to displaypath
-    display_node_path(robot, node_path, dt=0.5, viz=viz)
+    display_node_path(robot, node_path, dt=1, viz=viz)
     
