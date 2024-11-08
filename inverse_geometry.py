@@ -13,7 +13,7 @@ from pinocchio.pinocchio_pywrap.rpy import rotate
 
 from tools import collision, getcubeplacement, setcubeplacement, projecttojointlimits
 from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
-from tools import setcubeplacement, setupwithmeshcat, jointlimitsviolated, projecttojointlimits
+from tools import setcubeplacement, setupwithmeshcat, jointlimitsviolated, projecttojointlimits, distanceToObstacle
 from setup_meshcat import updatevisuals
 import time
 
@@ -220,6 +220,21 @@ def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step):
 
     return qnext, cube_reached
 
+def inverse_kinematics_analytic(robot, q, cube, time_step, viz):
+    cube_reached = False
+
+    for i in range(1000):
+
+        q, cube_reached = inverse_kinematics_analytic_step(robot, q, cube, time_step)
+
+        if viz:
+            viz.display(q)
+            time.sleep(0.0001)
+
+        if cube_reached and not collision(robot, q):
+            return q, True
+
+    return robot.q0, False
 
 def inverse_kinematics(robot, q, cube, time_step, viz):
     cube_reached = False
@@ -227,10 +242,11 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
     for i in range(1000):
 
         q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
+        # check the distance to objects
 
         if viz:
             viz.display(q)
-            #time.sleep(0.0001)
+            time.sleep(0.1)
 
         if cube_reached and not collision(robot, q):
             return q, True
@@ -255,7 +271,6 @@ def find_cube_from_configuration(robot):
 
     cube_placement = pin.SE3(rotate('z', 0.), average_translation)
     return cube_placement
-
 
 def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distance, viz=None):
     """
@@ -318,13 +333,12 @@ if __name__ == "__main__":
 
     q = robot.q0.copy()
 
-    #ANOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.2, -0.4, 0.95]))
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    ANOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.0, 5, 0.95]))
+    q0, successinit = computeqgrasppose(robot, q, cube, ANOTHER_CUBE_PLACEMENT, viz)
     print(successinit)
 
-    ANOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.5, -0.4, 1.05]))
-    print(CUBE_PLACEMENT)
-    qe, successend = compute_grasp_pose_constrained(robot, q0, cube, ANOTHER_CUBE_PLACEMENT, 10, viz=viz)
+    #NOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.5, -0.4, 1.05]))
+    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz=viz)
     print(successend)
     #updatevisuals(viz, robot, cube, q0)
 
