@@ -290,6 +290,18 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distan
         if collision(robot, q_next):
             return q_current, False
 
+        #pin.framesForwardKinematics(robot.model, robot.data, q_current)
+        #pin.updateGeometryPlacements(robot.model, robot.data, robot.collision_model, robot.collision_data, q_current)
+
+        #if distanceToObstacle(robot, q_next) < EPSILON:
+        #    return q_current, False
+
+        ##
+        #spin.updateGeometryPlacements(robot.model, robot.data, robot.collision_model, robot.collision_data, q_current)
+        #if distanceToObstacle(robot, q_next) < EPSILON:
+        #    return q_current, False
+        #print(distanceToObstacle(robot, q_next))
+
         # Constraint: Cube is not in collision - tougher one
 
         cube_next = find_cube_from_configuration(robot)

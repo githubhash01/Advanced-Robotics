@@ -17,7 +17,7 @@ import random
 # import the inverse kinematics class from the inverse_geometry.py file
 from inverse_geometry import compute_grasp_pose_constrained, find_cube_from_configuration
 
-from tools import setupwithmeshcat, setcubeplacement, collision
+from tools import setupwithmeshcat, setcubeplacement, collision, distanceToObstacle
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 from inverse_geometry import computeqgrasppose
 
@@ -121,7 +121,14 @@ class PathFinder:
             if step_size < EPSILON:
                 continue
 
+            if distanceToObstacle(self.robot, q_next) < 30 * EPSILON:
+                continue
+
             setcubeplacement(self.robot, self.cube, cube_next)
+            # visualise
+            if self.viz is not None:
+                self.viz.display(q_next)
+                time.sleep(0.1)
 
             # 5. Create a new node and add it to the tree
             new_node = Node(closest_node, q_next, cube_next)
@@ -167,7 +174,7 @@ class PathFinder:
             node2 = self.node_path[i + 1]
 
             # interpolate between the two cube placements
-            for t in np.linspace(0, 1, 10):
+            for t in np.linspace(0, 1, 5):
                 cube_placement = lerp(node1.cube_placement, node2.cube_placement, t)
                 q, _ = computeqgrasppose(self.robot, node1.configuration, self.cube, cube_placement)
                 new_path.append(q)

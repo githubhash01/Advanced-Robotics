@@ -20,6 +20,15 @@ from bezier import Bezier
 
 Kh = 1
 
+
+def maketraj(path, q0, q1, T):
+    path = [q0] + path + [q1]
+    q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)  # TODO - what is mult_t
+    vq_of_t = q_of_t.derivative(1)
+    vvq_of_t = vq_of_t.derivative(1)
+
+    return q_of_t, vq_of_t, vvq_of_t
+
 def controllaw(sim, robot, trajs, tcurrent, cube):
     q, vq = sim.getpybulletstate()
     #TODO 
@@ -41,7 +50,7 @@ def my_controller(sim, robot, trajs, tcurrent, cube):
 
     """
     Kp = 2500 # crazy number - but does the job
-    Kv = 1 * np.sqrt(Kp)
+    Kv = 2 * np.sqrt(Kp)
 
     # Step 1) Calculate desired q double dot
 
@@ -282,34 +291,7 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     sim.step(torques)
 
 
-def pd_controller(sim, robot, trajs, tcurrent, cube):
-    """
 
-    Simple PD controller for the robot.
-
-
-    u(t) = Kp * (q_d - q(t)) + Kv * (v_d - v(t))
-
-    """
-
-    # get the current position of the grippers
-
-
-    q, vq = sim.getpybulletstate()
-    x_dot = get_hand_cube_errors(robot, q, cube)
-
-    q_d = trajs[0](tcurrent)
-    v_d = trajs[1](tcurrent)
-
-    proportional_error = q_d - q
-    derivative_error = v_d - vq
-    hand_error = -x_dot
-
-    torques = Kp * proportional_error + Kv * derivative_error + Kh * hand_error
-
-    sim.step(torques)
-
-    return torques
 
 
 if __name__ == "__main__":
@@ -333,28 +315,8 @@ if __name__ == "__main__":
     #setting initial configuration
     sim.setqsim(q0)
 
-    # visualise the trajectory
-    """
-    for q in path:
-        sim.setqsim(q)
-        time.sleep(0.1)
-
-    """
-    #TODO this is just an example, you are free to do as you please.
-    #In any case this trajectory does not follow the path 
-    #0 init and end velocities
-    def maketraj(path, q0,q1,T): #TODO compute a real trajectory !
-        #q_of_t = Bezier([q0,q0,q1,q1],t_max=T)
-        #path = [q0 for i in range(10)] + path + [q1 for i in range(10)]
-        q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0) # TODO - what is mult_t
-        vq_of_t = q_of_t.derivative(1)
-        vvq_of_t = vq_of_t.derivative(1)
-
-        return q_of_t, vq_of_t, vvq_of_t
-
-
     #TODO this is just a random trajectory, you need to do this yourself
-    total_time = 5.
+    total_time = 4
     trajs = maketraj(path, q0, qe, total_time)
 
     tcur = 0.
@@ -362,6 +324,8 @@ if __name__ == "__main__":
     while tcur < total_time:
         rununtil(my_controller, DT, sim, robot, trajs, tcur, cube)
         tcur += DT
+
+
 
 
     
