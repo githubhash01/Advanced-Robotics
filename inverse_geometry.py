@@ -19,6 +19,7 @@ import time
 
 from tools import setcubeplacement
 
+import quadprog
 """
 
 Grasp Pose Problem: 
@@ -46,6 +47,111 @@ Two Approaches for Computing the Grasp Pose
     - include a cost function to minimize the distance of start pose and end pose
 
 """
+
+class InverseKinematicsSolver:
+
+    DT = 0.1
+
+    def __init__(self, robot_object, cube_object, viz_object=None):
+        self.robot = robot_object
+        self.q_current = None
+        self.cube = cube_object
+        self.viz = viz_object
+
+    def find_cube_from_configuration(self):
+
+        rh_frame_id = self.robot.model.getFrameId(RIGHT_HAND)
+        oMrh = self.robot.data.oMf[rh_frame_id]
+
+        lh_frame_id = self.robot.model.getFrameId(LEFT_HAND)
+        oMlh = self.robot.data.oMf[lh_frame_id]
+
+        # get the average of the two translations
+        average_translation = (oMrh.translation + oMlh.translation) / 2
+
+        # we assume cube is never rotated as there is no use for this
+        cube_placement = pin.SE3(rotate('z', 0.), average_translation)
+        return cube_placement
+
+    def get_hand_cube_errors(self):
+        """
+        Gets the 6D spatial vector error for LH -> Left Hook of Cube and RH -> Right Hook of Cube
+        """
+        pin.framesForwardKinematics(self.robot.model, self.robot.data, self.q_current)
+
+        # 6D error between right hand and target placement on the cube
+        rh_frame_id = self.robot.model.getFrameId(RIGHT_HAND)
+        oMrh = self.robot.data.oMf[rh_frame_id]
+        oMcubeR = getcubeplacement(self.cube, RIGHT_HOOK)
+        rhMcubeR = oMrh.inverse() * oMcubeR
+
+        x_dot_rh = pin.log(rhMcubeR).vector
+
+        # 6D error between LH frame and cube
+        lh_frameid = self.robot.model.getFrameId(LEFT_HAND)
+        oMlh = self.robot.data.oMf[lh_frameid]
+        oMcubeL = getcubeplacement(self.cube, LEFT_HOOK)
+        lhMcubeL = oMlh.inverse() * oMcubeL
+
+        x_dot_lh = pin.log(lhMcubeL).vector
+
+        # overall error used for optimisation x_dot = [x_dot_lh, x_dot_rh]
+        x_dot = np.hstack((x_dot_lh, x_dot_rh))
+        return x_dot
+
+    def get_hand_jacobian(self):
+        """
+        Gets the jacobian, of the end effector of the robot
+        """
+
+        pin.computeJointJacobians(self.robot.model, self.robot.data, self.q_current)
+        rh_frameid = self.robot.model.getFrameId(RIGHT_HAND)
+        lh_frameid = self.robot.model.getFrameId(LEFT_HAND)
+
+        jacobian_rh = pin.computeFrameJacobian(self.robot.model, self.robot.data, self.q_current, rh_frameid, pin.LOCAL)
+        jacobian_lh = pin.computeFrameJacobian(self.robot.model, self.robot.data, self.q_current, lh_frameid, pin.LOCAL)
+
+        jacobian = np.vstack((jacobian_lh, jacobian_rh))
+        return jacobian
+
+    def inverse_kinematics_quadprog_step(self):
+        x_dot = self.get_hand_cube_errors().flatten()
+        jacobian = self.get_hand_jacobian()
+
+        # Compute the Hessian matrix H and vector c for the QP objective function
+        H = jacobian.T @ jacobian
+        H = H + (1e-6) * np.eye(H.shape[0])  # Ensures positive semi-definiteness
+        c = jacobian.T @ x_dot
+
+        # TODO - extend for joint constraints implicitly defined here
+
+        q_dot_optimal = quadprog.solve_qp(H, c)[0]
+        return q_dot_optimal
+
+    def inverse_kinematics(self, q_start, cube_target):
+
+        self.q_current = q_start
+        setcubeplacement(self.robot, self.cube, cube_target)
+
+        for t in range(1000):
+            q_dot = self.inverse_kinematics_quadprog_step()
+            # integrate the joint velocities to get the next joint position
+            q_next = pin.integrate(self.robot.model, self.q_current, q_dot * self.DT)
+            if jointlimitsviolated(self.robot, q_next):
+                q_next = projecttojointlimits(self.robot, q_next)
+
+            self.q_current = q_next
+
+            # visualise the configuration
+            if self.viz:
+                self.viz.display(self.q_current)
+                time.sleep(self.DT)
+
+            # check for if we have reached the cube
+            if norm(q_dot) < EPSILON and not collision(self.robot, q_next):
+                return self.q_current
+
+        return None
 
 
 # Solves generic optimisation problems using quadprog
@@ -332,9 +438,14 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
     # Calculate the grasp pose, and the success flag
-    qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.01, viz=viz)
+    #qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.01, viz=viz)
 
-    return qnext, success
+    ikSolver = InverseKinematicsSolver(robot, cube, viz)
+    qnext = ikSolver.inverse_kinematics(qcurrent, cubetarget)
+    if qnext is None:
+        return qcurrent, False
+
+    return qnext, True
 
 
 if __name__ == "__main__":
@@ -344,14 +455,13 @@ if __name__ == "__main__":
     robot, cube, viz = setupwithmeshcat()
 
     q = robot.q0.copy()
-
-    ANOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.0, 5, 0.95]))
-    q0, successinit = computeqgrasppose(robot, q, cube, ANOTHER_CUBE_PLACEMENT, viz)
+    NOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.5, -0.35, 0.93]))
+    q0, successinit = computeqgrasppose(robot, q, cube, NOTHER_CUBE_PLACEMENT, viz)
     print(successinit)
 
     #NOTHER_CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.5, -0.4, 1.05]))
     qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz=viz)
     print(successend)
-    #updatevisuals(viz, robot, cube, q0)
+    updatevisuals(viz, robot, cube, q0)
 
 
