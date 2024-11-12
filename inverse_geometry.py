@@ -51,9 +51,9 @@ def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step):
     jacobian = get_hand_jacobian(robot, qcurrent)
     jacobian_rh, jacobian_lh = jacobian[6:, :], jacobian[:6, :]
 
-    x_dot, distanceRH, distanceLH = get_hand_cube_errors(robot, qcurrent, cube)
+    x_dot = get_hand_cube_errors(robot, qcurrent, cube)
 
-    if distanceRH < EPSILON and distanceLH < EPSILON:
+    if norm(x_dot) < 2 * EPSILON:
         cube_reached = True
         return qcurrent, cube_reached
 
@@ -229,13 +229,13 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
 def inverse_kinematics(robot, q, cube, time_step, viz):
 
     cube_reached = False
-    for i in range(1000):
+    for i in range(4000):
 
         q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
 
         if viz:
             viz.display(q)
-            #time.sleep(0.01)
+            time.sleep(0.01)
 
         #Old Version:
         #if cube_reached and not collision(robot, q):
@@ -290,7 +290,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
     qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.02, viz=viz)
-
+    #qnext, success = inverse_kinematics_analytic(robot, qcurrent, cube, time_step=0.02, viz=viz)
     return qnext, success
 
 
@@ -307,6 +307,6 @@ if __name__ == "__main__":
 
     # set the cube to the target placement
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz)
+    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz)
     print(successend)
     updatevisuals(viz, robot, cube, q0)

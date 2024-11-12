@@ -60,16 +60,17 @@ class PathFinder:
     def generate_random_cube_placement(self):
 
         while True:
-            #CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.33, -0.3, 0.93]))
-            #CUBE_PLACEMENT_TARGET = pin.SE3(rotate('z', 0), np.array([0.4, 0.11, 0.93]))
-
-            # TODO - pick these values more deliberately
             x_min = min(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) - 0.2
             x_max = max(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) + 0.2
             y_min = min(CUBE_PLACEMENT.translation[1], CUBE_PLACEMENT_TARGET.translation[1]) - 0.2
             y_max = max(CUBE_PLACEMENT.translation[1], CUBE_PLACEMENT_TARGET.translation[1]) + 0.2
-            z_min = CUBE_PLACEMENT.translation[2]
-            z_max = z_min + 0.4
+
+
+            z_min = min(CUBE_PLACEMENT.translation[2], CUBE_PLACEMENT_TARGET.translation[2])
+            z_max = max(CUBE_PLACEMENT.translation[2], CUBE_PLACEMENT_TARGET.translation[2]) + 0.4
+
+            #z_min = 0.93
+            #z_max = 1.3
 
             random_x = np.random.uniform(x_min, x_max, 1)[0]
             random_y = np.random.uniform(y_min, y_max, 1)[0]
@@ -136,8 +137,12 @@ class PathFinder:
             if step_size < EPSILON:
                 continue
 
+            #print(cube_next)
+
             if distanceToObstacle(self.robot, q_next) < 30 * EPSILON:
                 continue
+
+            #print(len(self.tree))
 
             setcubeplacement(self.robot, self.cube, cube_next)
             # visualise
