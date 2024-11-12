@@ -32,9 +32,72 @@ RIGHT_HOOK = "RARM_HOOK"
 #scene placements
 ROBOT_PLACEMENT= pin.XYZQUATToSE3(np.array([0.,0.,0.85,0.,0.,0.,1.]))
 TABLE_PLACEMENT= pin.SE3(rotate('z',-np.pi/2),np.array([0.8,0.,0.]))
-OBSTACLE_PLACEMENT= pin.SE3(rotate('z',0),np.array([0.43,-0.1,0.94]))
-CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
-CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
+
+"""
+Testing for robustness by changing the cube and potentially, the obstacle placement
+
+Test Cases: 
+
+1. Standard
+2. Reversed
+3. Far cubes
+4. Close cubes
+5. Tall obstacle
+6. Long obstacle 
+"""
+
+# Standard case
+#TEST_CASE = "Standard"
+
+# Distance of cube related tests:
+
+
+#TEST_CASE = "Reversed"
+#TEST_CASE = "Distant Start"
+#TEST_CASE = "Distant End"
+#TEST_CASE = "Distant to Distant"
+
+# Obstacle related tests:
+
+#TEST_CASE = "Forward Obstacle"
+TEST_CASE = "Long Obstacle"
+
+
+if TEST_CASE == "Standard":
+
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
+
+elif TEST_CASE == "Reversed":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.4, 0.11, 0.93]))
+    CUBE_PLACEMENT_TARGET = pin.SE3(rotate('z', 0.), np.array([0.33, -0.3, 0.93]))
+
+elif TEST_CASE == "Distant Start":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
+
+elif TEST_CASE == "Distant End":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
+
+elif TEST_CASE == "Distant to Distant":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
+
+elif TEST_CASE == "Forward Obstacle":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.6, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
+
+elif TEST_CASE == "Long Obstacle":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.2, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
 
 #do not edit this part unless you know what you are doing
 MODELS_PATH = join(dirname(str(abspath(__file__))), "models") 

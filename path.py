@@ -8,18 +8,12 @@ Created on Thu Sep 21 11:44:32 2023
 
 import pinocchio as pin
 import numpy as np
-from numpy.linalg import pinv
 from pinocchio.utils import rotate
-from config import LEFT_HAND, RIGHT_HAND, EPSILON
 import time
-import random
 
-# import the inverse kinematics class from the inverse_geometry.py file
-from inverse_geometry import compute_grasp_pose_constrained, find_cube_from_configuration
-
-from tools import setupwithmeshcat, setcubeplacement, collision, distanceToObstacle
-from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
-from inverse_geometry import computeqgrasppose
+from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle
+from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
+from inverse_geometry import computeqgrasppose, compute_grasp_pose_constrained, find_cube_from_configuration
 
 """
 Helper Functions
@@ -51,6 +45,8 @@ class PathFinder:
         self.node_path = [] # path of nodes (including the cube placement)
         self.path = [] # the configuration path
         self.path_found = False
+
+        self.visualise_process = False
 
     def generate_random_cube_placement(self):
 
@@ -101,8 +97,9 @@ class PathFinder:
 
         for iteration in range(3000):
 
+            random_coefficient = (iteration // 1000) + 1
             # 1. Generate a random cube placement
-            if iteration % 8 == 0:
+            if (np.random.random() * random_coefficient) > 0.875:
                 random_cube_placement = cube_placement_goal
             else:
                 random_cube_placement = self.generate_random_cube_placement()
@@ -112,7 +109,7 @@ class PathFinder:
             q_near, cube_placement_near = closest_node.configuration, closest_node.cube_placement
 
             # 3. Compute the next configuration
-            q_next, _ = compute_grasp_pose_constrained(self.robot, closest_node.configuration, self.cube, random_cube_placement, 0.06)
+            q_next, _ = compute_grasp_pose_constrained(self.robot, closest_node.configuration, self.cube, random_cube_placement, 0.1)
             cube_next = find_cube_from_configuration(self.robot)
 
             step_size = np.linalg.norm(cube_placement_near.translation - cube_next.translation)
@@ -121,21 +118,21 @@ class PathFinder:
             if step_size < EPSILON:
                 continue
 
-            if distanceToObstacle(self.robot, q_next) < 30 * EPSILON:
+            if distanceToObstacle(self.robot, q_next) < 25 * EPSILON:
                 continue
 
             setcubeplacement(self.robot, self.cube, cube_next)
             # visualise
-            if self.viz is not None:
+            if self.viz is not None and self.visualise_process:
                 self.viz.display(q_next)
-                time.sleep(0.1)
+                time.sleep(0.01)
 
             # 5. Create a new node and add it to the tree
             new_node = Node(closest_node, q_next, cube_next)
             self.tree.append(new_node)
 
             # Check if we can go to the goal
-            if self.VALID_EDGE(q_next, cube_next, cube_placement_goal, 0.08):
+            if self.VALID_EDGE(q_next, cube_next, cube_placement_goal, 0.1):
                 goal_node.parent = new_node
                 self.tree.append(goal_node)
                 self.extract_node_path()
@@ -205,6 +202,7 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         if pathfinder.path_found:
             print("Found path in: ", round(time.time() - start_time), "seconds")
             pathfinder.display_node_path(0.5)
+            #print(len(pathfinder.tree)) #find out if using a kd tree is worth it now
             #print(pathfinder.path)
             return pathfinder.path
 
@@ -229,6 +227,6 @@ if __name__ == "__main__":
 
     if not (successinit and successend):
         print("error: invalid initial or end configuration")
+        raise ValueError("Invalid initial or end configuration")
 
     path = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, viz=viz)
-
