@@ -51,7 +51,7 @@ class PathFinder:
         self.cube_placements = []
 
         # just a flag for debugging visually
-        self.visualise_process = False
+        self.visualise_process = True
 
     def update_kd_tree(self):
         """Update KD-Tree with current positions."""
@@ -60,8 +60,8 @@ class PathFinder:
     def generate_random_cube_placement(self):
 
         while True:
-            CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.33, -0.3, 0.93]))
-            CUBE_PLACEMENT_TARGET = pin.SE3(rotate('z', 0), np.array([0.4, 0.11, 0.93]))
+            #CUBE_PLACEMENT = pin.SE3(rotate('z', 0.), np.array([0.33, -0.3, 0.93]))
+            #CUBE_PLACEMENT_TARGET = pin.SE3(rotate('z', 0), np.array([0.4, 0.11, 0.93]))
 
             # TODO - pick these values more deliberately
             x_min = min(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) - 0.2
@@ -191,7 +191,7 @@ class PathFinder:
             node2 = self.node_path[i + 1]
 
             # interpolate between the two cube placements
-            for t in np.linspace(0, 1, 5):
+            for t in np.linspace(0, 1, 10):
                 cube_placement = lerp(node1.cube_placement, node2.cube_placement, t)
                 q, _ = computeqgrasppose(self.robot, node1.configuration, self.cube, cube_placement)
                 new_path.append(q)

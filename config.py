@@ -52,9 +52,10 @@ Test Cases:
 
 
 #TEST_CASE = "Reversed"
-TEST_CASE = "Distant Start"
+#TEST_CASE = "Distant Start"
+#TEST_CASE = "Distant Start Reversed"
 #TEST_CASE = "Distant End"
-#TEST_CASE = "Distant to Distant"
+TEST_CASE = "Distant to Distant"
 
 # Obstacle related tests:
 
@@ -77,6 +78,11 @@ elif TEST_CASE == "Distant Start":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
     CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
+
+elif TEST_CASE == "Distant Start Reversed":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.4, 0.11, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.33, -0.48, 0.93]))
 
 elif TEST_CASE == "Distant End":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))

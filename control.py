@@ -20,8 +20,6 @@ Kgrip = 60 # Gain for gripping the cube
 def maketraj(path, q0, q1, T):
     path = [q0]*10 + path + [q1]*5
     q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)  # TODO - what is mult_t
-
-    print(q_of_t)
     vq_of_t = q_of_t.derivative(1)
     vvq_of_t = vq_of_t.derivative(1)
 
@@ -41,6 +39,7 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     tau = M* desired_q_double_dot + h + J.T * f_c
 
     """
+    global Kgrip
 
     # Step 1) Calculate desired q double dot
 
@@ -85,11 +84,10 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     torques = M @ q_dot_dot_desired + h + jacobian.T @ f_c + g
 
     # find the contact forces
+    #contact_forces_calculated = jacobian.T @ f_c
 
-    contact_forces_calculated = jacobian.T @ f_c
-
-    if tcurrent < 0.2:
-        print(np.linalg.norm(contact_forces_calculated))
+    #if tcurrent < 0.2:
+    #    print(np.linalg.norm(contact_forces_calculated))
 
     sim.step(torques)
 

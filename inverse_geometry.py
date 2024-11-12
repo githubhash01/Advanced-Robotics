@@ -182,6 +182,15 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
     if distanceRH < EPSILON and distanceLH < EPSILON:
         cube_reached = True
         return qcurrent, cube_reached
+        
+        
+    Minimize     1/2 x^T G x - a^T x
+    Subject to   C.T x >= b
+    
+    G = J.T @ J
+    a = J.T @ x_dot
+    C = [-I, I]
+    b = [q_dot_min, - q_dot_max]
     """
 
     if norm(x_dot) < 2 * EPSILON:
@@ -191,24 +200,23 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
     jacobian = get_hand_jacobian(robot, qcurrent)
 
     # Compute the Hessian matrix H and vector c for the QP objective function
-    H = jacobian.T @ jacobian
-    H = H + 1e-6 * np.eye(H.shape[0])  # Ensures positive semi-definiteness
+    G = jacobian.T @ jacobian
+    G = G + 1e-6 * np.eye(G.shape[0])  # Ensures positive semi-definiteness
 
-    c = jacobian.T @ x_dot  # Linear term to drive the error to zero
-    c = np.array(c).flatten()
+    a = (jacobian.T @ x_dot).flatten()
 
     # Set up joint velocity constraints
     q_dot_min = (robot.model.lowerPositionLimit - qcurrent) / time_step
-    q_dot_max = (qcurrent - robot.model.upperPositionLimit) / time_step
+    q_dot_max = (robot.model.upperPositionLimit - qcurrent) / time_step
 
     # Construct G and h for the inequality constraints
-    G = np.vstack((np.eye(robot.model.nq), -np.eye(robot.model.nq)))
-    h = np.hstack((q_dot_max, -q_dot_min))
+    C = np.vstack((np.eye(robot.model.nq), -np.eye(robot.model.nq)))
+    b = np.hstack((q_dot_min, -q_dot_max))
 
     # Solve the QP to find the next joint velocities
     # TODO - include the joint limits in the optimisation
-    q_dot = quadprog.solve_qp(H, c)[0]
-
+    #q_dot = quadprog.solve_qp(G, a, C.T, b)[0]
+    q_dot = quadprog.solve_qp(G, a)[0]
     # Update q current to the next position
     qnext = pin.integrate(robot.model, qcurrent, q_dot * time_step)
 
@@ -227,6 +235,7 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
 
         if viz:
             viz.display(q)
+            #time.sleep(0.01)
 
         #Old Version:
         #if cube_reached and not collision(robot, q):
