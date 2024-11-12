@@ -9,15 +9,16 @@ Created on Wed Sep  6 15:32:51 2023
 import numpy as np
 from inverse_geometry import get_hand_jacobian
 import pinocchio
-from config import RIGHT_HAND, LEFT_HAND
+from config import RIGHT_HAND, LEFT_HAND, EPSILON
 from bezier import Bezier
 
 # PD gains set by Steve Thonneau - they work well for this problem
 Kp = 300
 Kv = 2 * np.sqrt(Kp)
+Kgrip = 60 # Gain for gripping the cube
 
 def maketraj(path, q0, q1, T):
-    path = [q0]*5 + path + [q1]*5
+    path = [q0]*10 + path + [q1]*5
     q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)  # TODO - what is mult_t
 
     print(q_of_t)
@@ -62,10 +63,15 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     lhOrh = oMlh.inverse() * oMrh
     grip_error = np.linalg.norm(pinocchio.log(lhOrh).vector)
 
-    grip_gain = 80 * grip_error  # Gain for bringing hands closer together (adjust as needed)
-    f_c_left_hand = np.array([0, -grip_gain, 0, 0, 0, 0])
-    f_c_right_hand = np.array([0, -grip_gain, 0, 0, 0, 0])
+    grip_force = Kgrip * grip_error  # Gain for bringing hands closer together (adjust as needed)
+    f_c_left_hand = np.array([0, -grip_force, 0, 0, 0, 0])
+    f_c_right_hand = np.array([0, -grip_force, 0, 0, 0, 0])
     f_c = np.hstack((f_c_left_hand, f_c_right_hand))
+
+    # in the final part of the trajectory, we want to release the cube
+    if abs(tcurrent - total_time) < EPSILON:
+        print("Releasing the cube")
+        f_c = np.array([0,0,0,0,0,0,0,0,0,0,0,0])
 
     jacobian = get_hand_jacobian(robot, q)
 
@@ -77,6 +83,13 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     g = 1.2 * pinocchio.computeGeneralizedGravity(robot.model, robot.data, q)
 
     torques = M @ q_dot_dot_desired + h + jacobian.T @ f_c + g
+
+    # find the contact forces
+
+    contact_forces_calculated = jacobian.T @ f_c
+
+    if tcurrent < 0.2:
+        print(np.linalg.norm(contact_forces_calculated))
 
     sim.step(torques)
 

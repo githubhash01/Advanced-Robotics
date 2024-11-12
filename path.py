@@ -136,7 +136,7 @@ class PathFinder:
             if step_size < EPSILON:
                 continue
 
-            if distanceToObstacle(self.robot, q_next) < 25 * EPSILON:
+            if distanceToObstacle(self.robot, q_next) < 30 * EPSILON:
                 continue
 
             setcubeplacement(self.robot, self.cube, cube_next)

@@ -237,7 +237,7 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
         if cube_reached and distanceToObstacle(robot, q) > 0:
             return q, cube_reached
 
-    print("Failed to find a valid grasp pose")
+    #print("Failed to find a valid grasp pose")
     return robot.q0, False
 
 def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distance, viz=None):
