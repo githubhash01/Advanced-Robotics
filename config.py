@@ -47,8 +47,7 @@ Test Cases:
 """
 
 # Standard case
-#TEST_CASE = "Standard"
-
+TEST_CASE = "Standard"
 # Distance of cube related tests:
 
 
@@ -60,7 +59,7 @@ Test Cases:
 # Obstacle related tests:
 
 #TEST_CASE = "Forward Obstacle"
-TEST_CASE = "Long Obstacle"
+#TEST_CASE = "Long Obstacle"
 
 
 if TEST_CASE == "Standard":

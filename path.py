@@ -10,6 +10,7 @@ import pinocchio as pin
 import numpy as np
 from pinocchio.utils import rotate
 import time
+from scipy.spatial import KDTree
 
 from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
@@ -46,7 +47,15 @@ class PathFinder:
         self.path = [] # the configuration path
         self.path_found = False
 
+        self.kd_tree = None
+        self.cube_placements = []
+
+        # just a flag for debugging visually
         self.visualise_process = False
+
+    def update_kd_tree(self):
+        """Update KD-Tree with current positions."""
+        self.kd_tree = KDTree(self.cube_placements)
 
     def generate_random_cube_placement(self):
 
@@ -74,6 +83,7 @@ class PathFinder:
 
         return random_cube_placement
 
+    # Brute force method for finding the closest node
     def find_closest_node(self, cube_placement):
 
         closest_node = None
@@ -88,12 +98,19 @@ class PathFinder:
 
         return closest_node
 
+    # KD-Tree method for finding the closest node
+    def find_closest_node_kd(self, cube_placement):
+        _, index = self.kd_tree.query(cube_placement.translation)
+        return self.tree[index]
+
 
     def build_RRT(self, q_init, q_goal, cube_placement_init, cube_placement_goal):
         start_node = Node(None, q_init, cube_placement_init)
         goal_node = Node(None, q_goal, cube_placement_goal)
 
         self.tree = [start_node]
+        self.cube_placements = [cube_placement_init.translation]
+        self.update_kd_tree()
 
         for iteration in range(3000):
 
@@ -105,7 +122,8 @@ class PathFinder:
                 random_cube_placement = self.generate_random_cube_placement()
 
             # 2. Find the closest node
-            closest_node = self.find_closest_node(random_cube_placement)
+            #closest_node = self.find_closest_node(random_cube_placement) # Old Method
+            closest_node = self.find_closest_node_kd(random_cube_placement)
             q_near, cube_placement_near = closest_node.configuration, closest_node.cube_placement
 
             # 3. Compute the next configuration
@@ -130,6 +148,8 @@ class PathFinder:
             # 5. Create a new node and add it to the tree
             new_node = Node(closest_node, q_next, cube_next)
             self.tree.append(new_node)
+            self.cube_placements.append(cube_next.translation)
+            self.update_kd_tree()
 
             # Check if we can go to the goal
             if self.VALID_EDGE(q_next, cube_next, cube_placement_goal, 0.1):
@@ -201,9 +221,7 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         pathfinder.build_RRT(qinit, qgoal, cubeplacementq0, cubeplacementqgoal)
         if pathfinder.path_found:
             print("Found path in: ", round(time.time() - start_time), "seconds")
-            pathfinder.display_node_path(0.5)
-            #print(len(pathfinder.tree)) #find out if using a kd tree is worth it now
-            #print(pathfinder.path)
+            #pathfinder.display_node_path(0.5)
             return pathfinder.path
 
     print("Failed to find path")
@@ -230,3 +248,4 @@ if __name__ == "__main__":
         raise ValueError("Invalid initial or end configuration")
 
     path = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, viz=viz)
+    displaypath(robot, path, 0.05, viz)

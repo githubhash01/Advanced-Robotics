@@ -228,7 +228,6 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
         if viz:
             viz.display(q)
 
-
         #Old Version:
         #if cube_reached and not collision(robot, q):
         #    return q, cube_reached
@@ -242,10 +241,7 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
     return robot.q0, False
 
 def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distance, viz=None):
-    """
-    Go
 
-    """
     setcubeplacement(robot, cube, cube_target)
 
     cube_original = find_cube_from_configuration(robot)
