@@ -54,8 +54,8 @@ Test Cases:
 #TEST_CASE = "Reversed"
 #TEST_CASE = "Distant Start"
 #TEST_CASE = "Distant Start Reversed"
-TEST_CASE = "Distant End"
-#TEST_CASE = "Distant to Distant"
+#TEST_CASE = "Distant End"
+TEST_CASE = "Distant to Distant"
 
 #TEST_CASE = "High end"
 #TEST_CASE = "High end start"

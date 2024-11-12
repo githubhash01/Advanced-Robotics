@@ -196,7 +196,7 @@ class PathFinder:
             node2 = self.node_path[i + 1]
 
             # interpolate between the two cube placements
-            for t in np.linspace(0, 1, 10):
+            for t in np.linspace(0, 1, 5):
                 cube_placement = lerp(node1.cube_placement, node2.cube_placement, t)
                 q, _ = computeqgrasppose(self.robot, node1.configuration, self.cube, cube_placement)
                 new_path.append(q)

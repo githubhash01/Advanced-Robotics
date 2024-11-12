@@ -79,12 +79,12 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     M = pinocchio.crba(robot.model, robot.data, q)
     h = pinocchio.nle(robot.model, robot.data, q, q_dot)
     # extra consideration for the gravity with a factor due to weight of the cube
-    g = 1.2 * pinocchio.computeGeneralizedGravity(robot.model, robot.data, q)
+    g = pinocchio.computeGeneralizedGravity(robot.model, robot.data, q) * 1.2
 
     torques = M @ q_dot_dot_desired + h + jacobian.T @ f_c + g
 
     # find the contact forces
-    #contact_forces_calculated = jacobian.T @ f_c
+    contact_forces_calculated = jacobian.T @ f_c
 
     #if tcurrent < 0.2:
     #    print(np.linalg.norm(contact_forces_calculated))
