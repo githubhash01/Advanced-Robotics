@@ -7,15 +7,23 @@ Created on Wed Sep  6 15:32:51 2023
 """
 
 import numpy as np
-from inverse_geometry import get_hand_jacobian
+from inverse_geometry import get_hand_jacobian, find_cube_from_configuration
 import pinocchio
 from config import RIGHT_HAND, LEFT_HAND, EPSILON
 from bezier import Bezier
+from tools import setupwithpybullet, setupwithpybulletandmeshcat, rununtil, collision
+from config import DT
+from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
+from inverse_geometry import computeqgrasppose, setcubeplacement
+from path import computepath
 
 # PD gains set by Steve Thonneau - they work well for this problem
 Kp = 300
 Kv = 2 * np.sqrt(Kp)
 Kgrip = 60 # Gain for gripping the cube
+
+COLLISION_STATUS = "collision"
+REACHED_STATUS = "reached"
 
 def maketraj(path, q0, q1, T):
     path = [q0]*10 + path + [q1]*5
@@ -25,7 +33,7 @@ def maketraj(path, q0, q1, T):
 
     return q_of_t, vq_of_t, vvq_of_t
 
-def contact_controller(sim, robot, trajs, tcurrent, cube):
+def contact_controller(sim, robot, trajs, tcurrent, cube, qe, total_time):
     """
 
     tau = M* desired_q_double_dot + h + J.T * f_c
@@ -40,6 +48,8 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
 
     """
     global Kgrip
+
+    status = "running"
 
     # Step 1) Calculate desired q double dot
 
@@ -61,6 +71,25 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     oMrh = robot.data.oMf[right_hand_id]
     lhOrh = oMlh.inverse() * oMrh
     grip_error = np.linalg.norm(pinocchio.log(lhOrh).vector)
+
+    # Check if I am epsilon away from CUBE_PLACEMENT_TARGET
+    # find cube from robot in inverse geome
+    #current_cube_pos = find_cube_from_configuration(robot).translation
+    translation_lh = oMlh.translation
+    translation_rh = oMrh.translation
+
+    # get the average of the two translations
+    current_cube_pos = (translation_rh + translation_lh) / 2
+
+    dist_to_goal = np.linalg.norm(CUBE_PLACEMENT_TARGET.translation - current_cube_pos)
+
+    print(CUBE_PLACEMENT_TARGET.translation, current_cube_pos)
+
+    if dist_to_goal < 0.015:  # distance is within 1.5 cm
+        status = "reached"
+
+    #if collision(robot, q):
+    #    status = COLLISION_STATUS
 
     grip_force = Kgrip * grip_error  # Gain for bringing hands closer together (adjust as needed)
     f_c_left_hand = np.array([0, -grip_force, 0, 0, 0, 0])
@@ -91,20 +120,18 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
 
     sim.step(torques)
 
-if __name__ == "__main__":
-        
-    from tools import setupwithpybullet, setupwithpybulletandmeshcat, rununtil
-    from config import DT
-    
+    return dist_to_goal
+
+def control_main():
     robot, sim, cube = setupwithpybullet()
-    
-    
-    from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET    
-    from inverse_geometry import computeqgrasppose, setcubeplacement
-    from path import computepath
     
     q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, None)
     qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  None)
+
+    if not (successinit and successend):
+        print("error: invalid initial or end configuration")
+        raise ValueError("Invalid initial or end configuration")
+
     path = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
 
     #setting initial configuration
@@ -114,10 +141,22 @@ if __name__ == "__main__":
     total_time = 4.0
     trajs = maketraj(path, q0, qe, total_time)
     tcur = 0.
-    
+
+    status = "not_started"
     while tcur < total_time:
-        rununtil(contact_controller, DT, sim, robot, trajs, tcur, cube)
+        status = rununtil(contact_controller, DT, sim, robot, trajs, tcur, cube=cube, qe=qe, total_time=total_time)
         tcur += DT
+
+        if status == COLLISION_STATUS:
+            break
+
+    return status
+
+
+if __name__ == "__main__":
+    control_main()
+
+
 
 
 

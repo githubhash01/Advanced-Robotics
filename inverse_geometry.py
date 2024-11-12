@@ -310,3 +310,7 @@ if __name__ == "__main__":
     qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz)
     print(successend)
     updatevisuals(viz, robot, cube, q0)
+
+    cube_now_at = find_cube_from_configuration(robot)
+    error = np.linalg.norm(cube_now_at.translation - CUBE_PLACEMENT_TARGET.translation)
+    print(error)
