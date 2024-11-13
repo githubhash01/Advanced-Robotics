@@ -8,16 +8,14 @@ Created on Wed Sep  6 15:32:51 2023
 
 import pinocchio as pin
 import numpy as np
-from numpy.linalg import pinv, inv, norm, svd, eig
+from numpy.linalg import pinv
 from pinocchio.pinocchio_pywrap.rpy import rotate
 import time
-
-from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
-from tools import setcubeplacement, jointlimitsviolated, projecttojointlimits, collision, getcubeplacement, \
-    distanceToObstacle
-from setup_meshcat import updatevisuals
 import quadprog
 
+from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON, DT
+from tools import setcubeplacement, jointlimitsviolated, projecttojointlimits, collision, getcubeplacement, \
+    distanceToObstacle
 
 
 
@@ -43,9 +41,8 @@ Constraints:
     - use the nullspace to compute the left hand
 """
 
-# DEPRECATED
-# TODO - ensure analytic still works
-# Solves inverse kinematics using pseudo-inverse and nullspace projection
+# DEPRECATED - we now use the quadprog version, for reasons discussed in the report
+# Solves the inverse kinematic problem over a single time step using pseudo-inverse and nullspace projection
 def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step):
     cube_reached = False
     jacobian = get_hand_jacobian(robot, qcurrent)
@@ -85,6 +82,8 @@ def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step):
 
     return qnext, cube_reached
 
+# DEPRECATED - we now use the quadprog version, for reasons discussed in the report
+# Solves inverse geometry by repeatedly calling the analytic step
 def inverse_kinematics_analytic(robot, q, cube, time_step, viz):
     cube_reached = False
 
@@ -111,8 +110,14 @@ def inverse_kinematics_analytic(robot, q, cube, time_step, viz):
 
 """
 
-# Finds the cube placement from the current configuration of the robot
+# Finds the cube placement by inferring from a grasp pose configuration of the robot
 def find_cube_from_configuration(robot):
+    """
+    Input: robot model
+
+    Returns: inferred cube placement SE3
+    """
+
     rh_frame_id = robot.model.getFrameId(RIGHT_HAND)
     oMrh = robot.data.oMf[rh_frame_id]
     # get the translation of the right hand
@@ -126,13 +131,23 @@ def find_cube_from_configuration(robot):
     # get the average of the two translations
     average_translation = (translation_rh + translation_lh) / 2
 
-    # create a new cube placement
+    # TODO - consider the rotation of the cube
     cube_placement = pin.SE3(rotate('z', 0), average_translation)
     return cube_placement
 
 # Gets the error between robot hands and a cube
 def get_hand_cube_errors(robot, q, cube):
+    """
+    Input:
 
+    robot: the robot model
+    q: the current configuration of the robot
+    cube: the cube model
+
+    Returns:
+
+    x_dot: the 6D error between the left and right hand and the cube hook placements
+    """
     pin.framesForwardKinematics(robot.model, robot.data, q)
 
     # 6D error between right hand and target placement on the cube
@@ -184,15 +199,21 @@ def get_hand_jacobian(robot, q):
 
 # Solves the inverse kinematic problem over a single time step
 def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
-    cube_reached = False
 
-    x_dot, distance_lh, distance_rh =  get_hand_cube_errors(robot, qcurrent, cube)
     """
-    if distanceRH < EPSILON and distanceLH < EPSILON:
-        cube_reached = True
-        return qcurrent, cube_reached
-        
-        
+    Input:
+
+    robot: the robot model
+    qcurrent: the current configuration of the robot
+    cube: the cube model
+    time_step: the time step for integration
+
+    Returns:
+
+    qnext: the next configuration of the robot
+
+    Notes:
+
     Minimize     1/2 x^T G x - a^T x
     Subject to   C.T x >= b
     
@@ -201,23 +222,15 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
     C = [-I, I]
     b = [q_dot_min, - q_dot_max]
 
-
-    if distance_lh < EPSILON:
-        print("Left hand reached")
-
-    if distance_rh < EPSILON:
-        print("Right hand reached")
     """
+    cube_reached = False
+
+    x_dot, distance_lh, distance_rh =  get_hand_cube_errors(robot, qcurrent, cube)
 
     if distance_lh <= EPSILON and distance_rh <= EPSILON:
         #print("Both hands reached")
         cube_reached = True
         return qcurrent, cube_reached
-    """
-    if norm(x_dot) < 2 * EPSILON:
-        cube_reached = True
-        return qcurrent, cube_reached
-    """
 
     jacobian = get_hand_jacobian(robot, qcurrent)
 
@@ -248,48 +261,64 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
 
     return qnext, cube_reached
 
+# Repeatedly calls the quadprog step to solve the inverse kinematics problem
 def inverse_kinematics(robot, q, cube, time_step, viz):
+    """
+    Input:
+
+    robot: the robot model
+    q: the current configuration of the robot
+    cube: the cube model
+    time_step: the time step for integration
+    viz: the visualisation object
+
+    Returns:
+
+    qnext: the next configuration of the robot
+    cube_reached: a flag indicating if the cube is reached
+    """
 
     cube_reached = False
-    for i in range(4000):
+    for i in range(4000): # TODO - magic number
 
         q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
 
         if viz:
-            if i % 10 == 0:
-                viz.display(q)
-                time.sleep(0.5)
+            viz.display(q)
+            time.sleep(time_step)
 
-        #Old Version:
-        #if cube_reached and not collision(robot, q):
-        #    return q, cube_reached
-
-        #print("Distance to obstacle: ", distanceToObstacle(robot, q))
-        # TODO - find out why the collision check is not working when we reverse the order and start from q0
-        if cube_reached and distanceToObstacle(robot, q) >= 0:
+        if cube_reached and distanceToObstacle(robot, q) > 0: # TODO - was >= 0
             return q, cube_reached
 
-    #print("Failed to find a valid grasp pose")
-    return robot.q0, False
+    return robot.q0, cube_reached
 
-def inverse_kinematics_interpolated(robot, q, cubetarget, cube, time_step):
 
-    setcubeplacement(robot, cube, cubetarget)
+"""
+!!! BONUS TASK - Enhanced RRT !!!
 
-    configurations = []
+Used as part of the enhanced RRT algorithm to find a collision-free path between two configurations
+avoids the need to do linear interpolation between the nearest node and the random node, by checking
+for collisions on the path whilst finding the grasp pose of the random node - far more efficient, 
+leads to a much faster RRT algorithm
 
-    for i in range(1000):
-
-        q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
-
-        if distanceToObstacle(robot, q) < 30 * EPSILON:
-            return configurations
-
-        configurations.append(q)
-
-    return configurations
-
+"""
+# Does IK with constraints, used for collision-free motion planning in RRT
 def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distance, viz=None):
+    """
+    Inputs:
+
+    robot: the robot model
+    q_start: the initial configuration of the robot
+    cube: the cube model
+    cube_target: the target cube placement
+    max_distance: the maximum distance the end effectors (and cube) can travel in cartesian space
+    viz: the visualisation object
+
+    Returns:
+
+    q_current: the final configuration of the robot
+    cube_reached: a flag indicating if the cube is reached
+    """
 
     setcubeplacement(robot, cube, cube_target)
 
@@ -326,10 +355,12 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distan
 
     return q_current, False
 
+# Computes the grasp pose of the robot
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
     qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.02, viz=viz)
+    #qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=DT, viz=viz)
     #qnext, success = inverse_kinematics_analytic(robot, qcurrent, cube, time_step=0.02, viz=viz)
     return qnext, success
 
@@ -343,30 +374,14 @@ if __name__ == "__main__":
     total_time = 0
     q = robot.q0.copy()
 
-    """
-    Testing: 
-   
-    for i in range(100):
-        start_time = time.time()
-        q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=None)
-        #print(successinit)
-
-        # set the cube to the target placement
-        setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-        qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=None)
-        end_time = time.time()
-        total_time += end_time - start_time
-         
-    """
-
     q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=viz)
     print(successinit)
 
-    time.sleep(5)
-    # set the cube to the target placement
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz=viz)
+    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=viz)
 
-    time.sleep(5)
     print(successend)
     updatevisuals(viz, robot, cube, q0)
+
+
+# TODO - decide what to do with the timestep

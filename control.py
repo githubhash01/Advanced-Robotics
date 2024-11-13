@@ -18,7 +18,7 @@ Kp = 500
 Kv = 2 * np.sqrt(Kp)
 Kgrip = 100 # Gain for gripping the cube
 
-
+# Function to create a trajectory
 def maketraj(path, q0, q1, T):
     path = [q0]*5 + path + [q1]*5
     q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)  # TODO - what is mult_t
@@ -27,6 +27,7 @@ def maketraj(path, q0, q1, T):
 
     return q_of_t, vq_of_t, vvq_of_t
 
+# Control law
 def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     """
 
@@ -41,8 +42,6 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     tau = M* desired_q_double_dot + h + J.T * f_c
 
     """
-    global Kgrip
-
     # Step 1) Calculate desired q double dot
 
     q, q_dot = sim.getpybulletstate()
@@ -58,6 +57,7 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     q_dot_dot_reference = trajs[2](tcurrent)
 
     q_dot_dot_desired = q_dot_dot_reference + Kp * (q_reference - q) + Kv * (q_dot_reference - q_dot)
+
     # Step 2) Add a term to bring the hands closer together
     # Distance-based correction
     left_hand_id = robot.model.getFrameId(LEFT_HAND)
@@ -68,7 +68,7 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     grip_error = np.linalg.norm(pinocchio.log(lhOrh).vector)
 
     # find the rotation of the cube by using find_cube_from_configuration
-    grip_force = Kgrip * grip_error  # Gain for bringing hands closer together (adjust as needed)
+    grip_force = Kgrip * grip_error  # Gain for bringing hands closer together
 
     # Define the original contact forces in the world frame
     f_c_left_hand = np.array([0, -grip_force, 0, 0, 0, 0])
@@ -82,8 +82,9 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     pinocchio.computeJointJacobians(robot.model, robot.data, q)
     M = pinocchio.crba(robot.model, robot.data, q)
     h = pinocchio.nle(robot.model, robot.data, q, q_dot)
+
     # extra consideration for the gravity with a factor due to weight of the cube
-    g = pinocchio.computeGeneralizedGravity(robot.model, robot.data, q) * 1
+    g = pinocchio.computeGeneralizedGravity(robot.model, robot.data, q) * 1.2
 
     torques = M @ q_dot_dot_desired + h + jacobian.T @ f_c + g
 
