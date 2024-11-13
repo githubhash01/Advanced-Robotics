@@ -14,7 +14,8 @@ from scipy.spatial import KDTree
 
 from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
-from inverse_geometry import computeqgrasppose, compute_grasp_pose_constrained, find_cube_from_configuration
+from inverse_geometry import computeqgrasppose, compute_grasp_pose_constrained, find_cube_from_configuration, inverse_kinematics_interpolated, inverse_kinematics
+import quadprog
 
 """
 Helper Functions
@@ -51,7 +52,7 @@ class PathFinder:
         self.cube_placements = []
 
         # just a flag for debugging visually
-        self.visualise_process = True
+        self.visualise_process = False
 
     def update_kd_tree(self):
         """Update KD-Tree with current positions."""
@@ -106,6 +107,14 @@ class PathFinder:
 
 
     def build_RRT(self, q_init, q_goal, cube_placement_init, cube_placement_goal):
+
+        # for RRT to work, we need to make sure that the cubes are not rotated
+        #cube_placement_init.rotation = rotate('z', 0)
+        #cube_placement_goal.rotation = rotate('z', 0)
+        # then resolve the grasppose for q_init and q_goal
+        #q_init, _ = computeqgrasppose(self.robot, q_init, self.cube, cube_placement_init)
+        #q_goal, _ = computeqgrasppose(self.robot, q_goal, self.cube, cube_placement_goal)
+
         start_node = Node(None, q_init, cube_placement_init)
         goal_node = Node(None, q_goal, cube_placement_goal)
 
@@ -128,7 +137,7 @@ class PathFinder:
             q_near, cube_placement_near = closest_node.configuration, closest_node.cube_placement
 
             # 3. Compute the next configuration
-            q_next, _ = compute_grasp_pose_constrained(self.robot, closest_node.configuration, self.cube, random_cube_placement, 0.1)
+            q_next, _ = compute_grasp_pose_constrained(self.robot, closest_node.configuration, self.cube, random_cube_placement, 0.08)
             cube_next = find_cube_from_configuration(self.robot)
 
             step_size = np.linalg.norm(cube_placement_near.translation - cube_next.translation)
@@ -139,7 +148,7 @@ class PathFinder:
 
             #print(cube_next)
 
-            if distanceToObstacle(self.robot, q_next) < 30 * EPSILON:
+            if distanceToObstacle(self.robot, q_next) < 30 * EPSILON: # used to be 30
                 continue
 
             #print(len(self.tree))
@@ -162,6 +171,8 @@ class PathFinder:
                 self.tree.append(goal_node)
                 self.extract_node_path()
                 self.interpolate_path()
+                print("Path found now!")
+                #self.interpolate_path_new()
                 self.path_found = True
                 break
 
@@ -190,18 +201,54 @@ class PathFinder:
     def interpolate_path(self):
 
         new_path = []
+
         # goes through all the nodes in the node path, and does inverse kinematics from one node to the next adding each waypoint configuration to the path
         for i in range(len(self.node_path) - 1):
             node1 = self.node_path[i]
             node2 = self.node_path[i + 1]
 
+            # find the distance between nodes
+            distance = np.linalg.norm(node1.cube_placement.translation - node2.cube_placement.translation)
+
+            # interpolate such that each step is roughly 0.01 distance
+            num_steps = int(distance / 0.005) # at least 2 steps
+
             # interpolate between the two cube placements
-            for t in np.linspace(0, 1, 10):
+            for t in np.linspace(0, 1, num_steps):
                 cube_placement = lerp(node1.cube_placement, node2.cube_placement, t)
                 q, _ = computeqgrasppose(self.robot, node1.configuration, self.cube, cube_placement)
                 new_path.append(q)
 
+
+        # only get 100 waypoints
+        if len(new_path) > 100:
+            new_path = new_path[::len(new_path) // 100]
+
         self.path = new_path
+
+    def interpolate_path_new(self):
+
+        """
+        Interpolates a path by doing IK between each configuration in the path and getting the value along the way
+        """
+
+        interpolated_path = []
+
+        for i in range(len(self.node_path) - 1):
+            node1 = self.node_path[i]
+            node2 = self.node_path[i + 1]
+
+            # interpolate between the two cube placements using robot, robot, q, cubetarget, cube, time_step
+            setcubeplacement(self.robot, self.cube, node2.cube_placement)
+            waypoints = inverse_kinematics_interpolated(self.robot, node1.configuration, node2.cube_placement, self.cube, 0.01)
+            # add the waypoints to the path
+            interpolated_path.extend(waypoints)
+
+        # scale down to 100 waypoints
+        if len(interpolated_path) > 100:
+            interpolated_path = interpolated_path[::len(interpolated_path) // 100]
+
+        self.path = interpolated_path
 
     # additional helper function to display the path with the cube as well
     def display_node_path(self, dt):
@@ -226,7 +273,7 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         pathfinder.build_RRT(qinit, qgoal, cubeplacementq0, cubeplacementqgoal)
         if pathfinder.path_found:
             print("Found path in: ", round(time.time() - start_time), "seconds")
-            pathfinder.display_node_path(0.05)
+            #pathfinder.display_node_path(0.05)
             return pathfinder.path
 
     print("Failed to find path")
@@ -253,4 +300,5 @@ if __name__ == "__main__":
         raise ValueError("Invalid initial or end configuration")
 
     path = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, viz=viz)
-    displaypath(robot, path, 0.05, viz)
+    #displaypath(robot, path, 0.001, viz)
+    print(len(path))

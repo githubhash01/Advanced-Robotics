@@ -11,14 +11,16 @@ from inverse_geometry import get_hand_jacobian
 import pinocchio
 from config import RIGHT_HAND, LEFT_HAND, EPSILON
 from bezier import Bezier
+from inverse_geometry import find_cube_from_configuration
 
 # PD gains set by Steve Thonneau - they work well for this problem
-Kp = 300
+Kp = 500
 Kv = 2 * np.sqrt(Kp)
-Kgrip = 60 # Gain for gripping the cube
+Kgrip = 100 # Gain for gripping the cube
+
 
 def maketraj(path, q0, q1, T):
-    path = [q0]*10 + path + [q1]*5
+    path = [q0]*5 + path + [q1]*5
     q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)  # TODO - what is mult_t
     vq_of_t = q_of_t.derivative(1)
     vvq_of_t = vq_of_t.derivative(1)
@@ -65,15 +67,14 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     lhOrh = oMlh.inverse() * oMrh
     grip_error = np.linalg.norm(pinocchio.log(lhOrh).vector)
 
+    # find the rotation of the cube by using find_cube_from_configuration
     grip_force = Kgrip * grip_error  # Gain for bringing hands closer together (adjust as needed)
+
+    # Define the original contact forces in the world frame
     f_c_left_hand = np.array([0, -grip_force, 0, 0, 0, 0])
     f_c_right_hand = np.array([0, -grip_force, 0, 0, 0, 0])
-    f_c = np.hstack((f_c_left_hand, f_c_right_hand))
 
-    # in the final part of the trajectory, we want to release the cube
-    if abs(tcurrent - total_time) < EPSILON:
-        print("Releasing the cube")
-        f_c = np.array([0,0,0,0,0,0,0,0,0,0,0,0])
+    f_c = np.hstack((f_c_left_hand, f_c_right_hand))
 
     jacobian = get_hand_jacobian(robot, q)
 
@@ -82,15 +83,9 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     M = pinocchio.crba(robot.model, robot.data, q)
     h = pinocchio.nle(robot.model, robot.data, q, q_dot)
     # extra consideration for the gravity with a factor due to weight of the cube
-    g = pinocchio.computeGeneralizedGravity(robot.model, robot.data, q) * 1.2
+    g = pinocchio.computeGeneralizedGravity(robot.model, robot.data, q) * 1
 
     torques = M @ q_dot_dot_desired + h + jacobian.T @ f_c + g
-
-    # find the contact forces
-    contact_forces_calculated = jacobian.T @ f_c
-
-    #if tcurrent < 0.2:
-    #    print(np.linalg.norm(contact_forces_calculated))
 
     sim.step(torques)
 

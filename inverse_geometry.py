@@ -127,7 +127,7 @@ def find_cube_from_configuration(robot):
     average_translation = (translation_rh + translation_lh) / 2
 
     # create a new cube placement
-    cube_placement = pin.SE3(rotate('z', 0.), average_translation)
+    cube_placement = pin.SE3(rotate('z', 0), average_translation)
     return cube_placement
 
 # Gets the error between robot hands and a cube
@@ -256,8 +256,9 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
         q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
 
         if viz:
-            viz.display(q)
-            #time.sleep(0.01)
+            if i % 10 == 0:
+                viz.display(q)
+                time.sleep(0.5)
 
         #Old Version:
         #if cube_reached and not collision(robot, q):
@@ -270,6 +271,23 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
 
     #print("Failed to find a valid grasp pose")
     return robot.q0, False
+
+def inverse_kinematics_interpolated(robot, q, cubetarget, cube, time_step):
+
+    setcubeplacement(robot, cube, cubetarget)
+
+    configurations = []
+
+    for i in range(1000):
+
+        q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
+
+        if distanceToObstacle(robot, q) < 30 * EPSILON:
+            return configurations
+
+        configurations.append(q)
+
+    return configurations
 
 def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distance, viz=None):
 
@@ -347,7 +365,7 @@ if __name__ == "__main__":
     time.sleep(5)
     # set the cube to the target placement
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=viz)
+    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz=viz)
 
     time.sleep(5)
     print(successend)
