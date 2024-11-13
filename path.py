@@ -196,7 +196,7 @@ class PathFinder:
             node2 = self.node_path[i + 1]
 
             # interpolate between the two cube placements
-            for t in np.linspace(0, 1, 5):
+            for t in np.linspace(0, 1, 10):
                 cube_placement = lerp(node1.cube_placement, node2.cube_placement, t)
                 q, _ = computeqgrasppose(self.robot, node1.configuration, self.cube, cube_placement)
                 new_path.append(q)
@@ -226,7 +226,7 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         pathfinder.build_RRT(qinit, qgoal, cubeplacementq0, cubeplacementqgoal)
         if pathfinder.path_found:
             print("Found path in: ", round(time.time() - start_time), "seconds")
-            #pathfinder.display_node_path(0.5)
+            pathfinder.display_node_path(0.05)
             return pathfinder.path
 
     print("Failed to find path")

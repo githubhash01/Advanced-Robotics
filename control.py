@@ -25,7 +25,7 @@ def maketraj(path, q0, q1, T):
 
     return q_of_t, vq_of_t, vvq_of_t
 
-def contact_controller(sim, robot, trajs, tcurrent, cube):
+def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     """
 
     tau = M* desired_q_double_dot + h + J.T * f_c
@@ -44,6 +44,9 @@ def contact_controller(sim, robot, trajs, tcurrent, cube):
     # Step 1) Calculate desired q double dot
 
     q, q_dot = sim.getpybulletstate()
+
+    if viz is not None:
+        viz.display(q)
 
     pinocchio.forwardKinematics(robot.model, robot.data, q)
     pinocchio.updateFramePlacements(robot.model, robot.data)
@@ -97,8 +100,9 @@ if __name__ == "__main__":
     from config import DT
     
     robot, sim, cube = setupwithpybullet()
-    
-    
+    viz = None
+    #robot, sim, cube, viz = setupwithpybulletandmeshcat("http://127.0.0.1:7003/static/")
+
     from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET    
     from inverse_geometry import computeqgrasppose, setcubeplacement
     from path import computepath
@@ -116,7 +120,7 @@ if __name__ == "__main__":
     tcur = 0.
     
     while tcur < total_time:
-        rununtil(contact_controller, DT, sim, robot, trajs, tcur, cube)
+        rununtil(contact_controller, DT, sim, robot, trajs, tcur, viz=viz)
         tcur += DT
 
 

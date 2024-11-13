@@ -51,16 +51,19 @@ Test Cases:
 # Distance of cube related tests:
 
 
-#TEST_CASE = "Reversed"
+TEST_CASE = "Reversed"
 #TEST_CASE = "Distant Start"
 #TEST_CASE = "Distant Start Reversed"
 #TEST_CASE = "Distant End"
-TEST_CASE = "Distant to Distant"
+#TEST_CASE = "Distant to Distant"
 
 #TEST_CASE = "High end"
 #TEST_CASE = "High end start"
 # Obstacle related tests:
 
+
+#TEST_CASE = "Easy Rotated"
+#TEST_CASE = "Easy Rotated Reversed"
 #TEST_CASE = "Forward Obstacle"
 #TEST_CASE = "Long Obstacle"
 
@@ -115,6 +118,17 @@ elif TEST_CASE == "High end start":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
     CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.4, 0.11, 1.2]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.33, -0.3, 0.93]))
+
+# in the case when the cube is rotated, but the right hand still goes to the right hook
+elif TEST_CASE == "Easy Rotated":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.4),np.array([0.33, -0.43, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
+
+elif TEST_CASE == "Easy Rotated Reversed":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0.4),np.array([0.33, 0.15, 0.93]))
 
 #do not edit this part unless you know what you are doing
 MODELS_PATH = join(dirname(str(abspath(__file__))), "models") 

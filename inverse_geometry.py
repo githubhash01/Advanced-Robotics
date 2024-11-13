@@ -51,9 +51,16 @@ def inverse_kinematics_analytic_step(robot, qcurrent, cube, time_step):
     jacobian = get_hand_jacobian(robot, qcurrent)
     jacobian_rh, jacobian_lh = jacobian[6:, :], jacobian[:6, :]
 
-    x_dot = get_hand_cube_errors(robot, qcurrent, cube)
+    x_dot, distance_lh, distance_rh = get_hand_cube_errors(robot, qcurrent, cube)
 
+    """
     if norm(x_dot) < 2 * EPSILON:
+        cube_reached = True
+        return qcurrent, cube_reached
+    """
+
+    if distance_lh <= EPSILON and distance_rh <= EPSILON:
+        #print("Both hands reached")
         cube_reached = True
         return qcurrent, cube_reached
 
@@ -87,7 +94,7 @@ def inverse_kinematics_analytic(robot, q, cube, time_step, viz):
 
         if viz:
             viz.display(q)
-            time.sleep(0.0001)
+            #time.sleep(0.0001)
 
         if cube_reached and not collision(robot, q):
             return q, True
@@ -134,6 +141,8 @@ def get_hand_cube_errors(robot, q, cube):
     oMcubeR = getcubeplacement(cube, RIGHT_HOOK)
     rhMcubeR = oMrh.inverse() * oMcubeR
 
+    distance_rh = np.linalg.norm(rhMcubeR.translation)
+
     x_dot_rh = pin.log(rhMcubeR).vector
 
     # 6D error between LH frame and cube
@@ -141,13 +150,14 @@ def get_hand_cube_errors(robot, q, cube):
     oMlh = robot.data.oMf[lh_frameid]
     oMcubeL = getcubeplacement(cube, LEFT_HOOK)
     lhMcubeL = oMlh.inverse() * oMcubeL
+    distance_lh = np.linalg.norm(lhMcubeL.translation)
 
     x_dot_lh = pin.log(lhMcubeL).vector
 
     # overall error used for optimisation x_dot = [x_dot_lh, x_dot_rh]
     x_dot = np.hstack((x_dot_lh, x_dot_rh)).flatten()
 
-    return x_dot
+    return x_dot, distance_lh, distance_rh
 
 # Gets the jacobian of the hand of the robot
 def get_hand_jacobian(robot, q):
@@ -176,8 +186,7 @@ def get_hand_jacobian(robot, q):
 def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
     cube_reached = False
 
-    x_dot = get_hand_cube_errors(robot, qcurrent, cube)
-
+    x_dot, distance_lh, distance_rh =  get_hand_cube_errors(robot, qcurrent, cube)
     """
     if distanceRH < EPSILON and distanceLH < EPSILON:
         cube_reached = True
@@ -191,11 +200,24 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
     a = J.T @ x_dot
     C = [-I, I]
     b = [q_dot_min, - q_dot_max]
+
+
+    if distance_lh < EPSILON:
+        print("Left hand reached")
+
+    if distance_rh < EPSILON:
+        print("Right hand reached")
     """
 
+    if distance_lh <= EPSILON and distance_rh <= EPSILON:
+        #print("Both hands reached")
+        cube_reached = True
+        return qcurrent, cube_reached
+    """
     if norm(x_dot) < 2 * EPSILON:
         cube_reached = True
         return qcurrent, cube_reached
+    """
 
     jacobian = get_hand_jacobian(robot, qcurrent)
 
@@ -235,7 +257,7 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
 
         if viz:
             viz.display(q)
-            time.sleep(0.01)
+            #time.sleep(0.01)
 
         #Old Version:
         #if cube_reached and not collision(robot, q):
@@ -243,7 +265,7 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
 
         #print("Distance to obstacle: ", distanceToObstacle(robot, q))
         # TODO - find out why the collision check is not working when we reverse the order and start from q0
-        if cube_reached and distanceToObstacle(robot, q) > 0:
+        if cube_reached and distanceToObstacle(robot, q) >= 0:
             return q, cube_reached
 
     #print("Failed to find a valid grasp pose")
@@ -300,13 +322,33 @@ if __name__ == "__main__":
 
     robot, cube, viz = setupwithmeshcat()
 
+    total_time = 0
     q = robot.q0.copy()
 
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    """
+    Testing: 
+   
+    for i in range(100):
+        start_time = time.time()
+        q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=None)
+        #print(successinit)
+
+        # set the cube to the target placement
+        setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
+        qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=None)
+        end_time = time.time()
+        total_time += end_time - start_time
+         
+    """
+
+    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=viz)
     print(successinit)
 
+    time.sleep(5)
     # set the cube to the target placement
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz)
+    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=viz)
+
+    time.sleep(5)
     print(successend)
     updatevisuals(viz, robot, cube, q0)
