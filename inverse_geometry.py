@@ -14,10 +14,11 @@ import time
 
 from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
 from tools import setcubeplacement, jointlimitsviolated, projecttojointlimits, collision, getcubeplacement, \
-    distanceToObstacle
+    distanceToObstacle, distance_from_collision_cube
 from setup_meshcat import updatevisuals
 import quadprog
-
+from tools import setupwithmeshcat
+from setup_meshcat import updatevisuals
 
 
 
@@ -289,18 +290,19 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distan
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
+
     qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.02, viz=viz)
     #qnext, success = inverse_kinematics_analytic(robot, qcurrent, cube, time_step=0.02, viz=viz)
     return qnext, success
 
 
-if __name__ == "__main__":
-    from tools import setupwithmeshcat
-    from setup_meshcat import updatevisuals
-
+def inverse_geometry_main(viz_on=True):
     robot, cube, viz = setupwithmeshcat()
 
     q = robot.q0.copy()
+
+    if not viz_on:
+        viz = None
 
     q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
     print(successinit)
@@ -309,8 +311,15 @@ if __name__ == "__main__":
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
     qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz)
     print(successend)
-    updatevisuals(viz, robot, cube, q0)
+
+    if viz:
+        updatevisuals(viz, robot, cube, q0)
 
     cube_now_at = find_cube_from_configuration(robot)
     error = np.linalg.norm(cube_now_at.translation - CUBE_PLACEMENT_TARGET.translation)
-    print(error)
+
+    return successinit, successend, error
+
+if __name__ == "__main__":
+    inverse_geometry_main()
+

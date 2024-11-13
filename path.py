@@ -12,7 +12,7 @@ from pinocchio.utils import rotate
 import time
 from scipy.spatial import KDTree
 
-from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle
+from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle, distance_from_collision_cube
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON
 from inverse_geometry import computeqgrasppose, compute_grasp_pose_constrained, find_cube_from_configuration
 
@@ -139,12 +139,23 @@ class PathFinder:
 
             #print(cube_next)
 
+
             if distanceToObstacle(self.robot, q_next) < 30 * EPSILON:
                 continue
 
             #print(len(self.tree))
 
+            # store current cube placement in case we need to reset
+            cube_placement_current = self.cube.collision_model.geometryObjects[0].placement.copy()
+
             setcubeplacement(self.robot, self.cube, cube_next)
+            d_cube_obstacle = distance_from_collision_cube(self.cube)
+
+            # if the cube is too close to the obstacle, ignore it and reset the cube placement
+            if d_cube_obstacle < 0.1:
+                setcubeplacement(self.robot, self.cube, cube_placement_current)
+                continue
+
             # visualise
             if self.viz is not None and self.visualise_process:
                 self.viz.display(q_next)

@@ -47,8 +47,7 @@ Test Cases:
 """
 
 # Standard case
-#TEST_CASE = "Standard"
-TEST_CASE = "Move_same_side"
+TEST_CASE = "Standard"
 # Distance of cube related tests:
 
 
@@ -66,56 +65,43 @@ TEST_CASE = "Move_same_side"
 #TEST_CASE = "Long Obstacle"
 
 
-if TEST_CASE == "Standard":
+TEST_CASES = {
+    "Standard": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                 "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93])),
+                 "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))},
+    "Reversed": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                    "cube_placement": pin.SE3(rotate('z', 0), np.array([0.4, 0.11, 0.93])),
+                    "cube_placement_target": pin.SE3(rotate('z', 0.), np.array([0.33, -0.3, 0.93]))},
+    "Distant Start": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                        "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93])),
+                        "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))},
+    "Distant Start Reversed": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                                "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.4, 0.11, 0.93])),
+                                "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.33, -0.48, 0.93]))},
+    "Distant End": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                    "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93])),
+                    "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))},
+    "Distant to Distant": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                            "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93])),
+                            "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))},
+    "Forward Obstacle": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.6, -0.1, 0.94])),
+                        "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93])),
+                        "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))},
+    "Long Obstacle": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.2, -0.1, 0.94])),
+                        "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93])),
+                        "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))},
+    "High end": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+                    "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93])),
+                    "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 1.2]))},
+    # "High end start": {"obstacle_placement": pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94])),
+    #                     "cube_placement": pin.SE3(rotate('z', 0.),np.array([0.4, 0.11, 1.2])),
+    #                     "cube_placement_target": pin.SE3(rotate('z', 0),np.array([0.33, -0.3, 0.93]))}
+}
 
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
 
-elif TEST_CASE == "Reversed":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.4, 0.11, 0.93]))
-    CUBE_PLACEMENT_TARGET = pin.SE3(rotate('z', 0.), np.array([0.33, -0.3, 0.93]))
-
-elif TEST_CASE == "Distant Start":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
-
-elif TEST_CASE == "Distant Start Reversed":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.4, 0.11, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.33, -0.48, 0.93]))
-
-elif TEST_CASE == "Distant End":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
-
-elif TEST_CASE == "Distant to Distant":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
-
-elif TEST_CASE == "Forward Obstacle":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.6, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
-
-elif TEST_CASE == "Long Obstacle":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.2, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
-
-elif TEST_CASE == "High end":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 1.2]))
-
-elif TEST_CASE == "High end start":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.4, 0.11, 1.2]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.33, -0.3, 0.93]))
+OBSTACLE_PLACEMENT = TEST_CASES[TEST_CASE]["obstacle_placement"]
+CUBE_PLACEMENT = TEST_CASES[TEST_CASE]["cube_placement"]
+CUBE_PLACEMENT_TARGET = TEST_CASES[TEST_CASE]["cube_placement_target"]
 
 #do not edit this part unless you know what you are doing
 MODELS_PATH = join(dirname(str(abspath(__file__))), "models") 

@@ -8,6 +8,7 @@ Created on Wed Sep  6 15:32:51 2023
 
 import pinocchio as pin #the pinocchio library
 import numpy as np
+from pinocchio.pinocchio_pywrap.rpy import rotate
 
 def jointlimitscost(robot,q):
     up = max(q - robot.model.upperPositionLimit)
@@ -50,6 +51,7 @@ def distanceToObstacle(robot, q):
       # print(min (dists))
       return min(dists)
 
+
     
 def getcubeplacement(cube, hookname = None):
     oMf = cube.collision_model.geometryObjects[0].placement
@@ -66,12 +68,22 @@ def setcubeplacement(robot, cube, oMf):
     cube.visual_model.geometryObjects[-1].placement = oMf
     cube.collision_model.geometryObjects[0].placement = oMf    
     pin.updateGeometryPlacements(cube.model,cube.data,cube.collision_model,cube.collision_data,q)
-    
+
+
+def distance_from_collision_cube(cube):
+    """ Minimum distance cube and obstacle"""
+    geomidobs = cube.collision_model.getGeometryId('obstaclebase_0')
+    geomidcube = cube.collision_model.getGeometryId('cube')
+    pairs = [i for i, pair in enumerate(cube.collision_model.collisionPairs) if pair.second == geomidobs or pair.second == geomidcube]
+    pin.updateGeometryPlacements(cube.model,cube.data,cube.collision_model,cube.collision_data,cube.q0)
+    dists = [pin.computeDistance(cube.collision_model, cube.collision_data, idx).min_distance for idx in pairs]
+    return min(dists)
 
     
 from setup_pinocchio import setuppinocchio
 from setup_meshcat import setupmeshcat     
-from config import MESHCAT_URL
+from config import MESHCAT_URL, RIGHT_HAND, LEFT_HAND
+
 
 def setupwithmeshcat(url=MESHCAT_URL):
      '''setups everything to work with the robot and meshcat'''
