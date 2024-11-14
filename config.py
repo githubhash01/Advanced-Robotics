@@ -48,25 +48,19 @@ Test Cases:
 
 # Standard case
 TEST_CASE = "Standard"
-# Distance of cube related tests:
 
+# Robustness tests:
 
 #TEST_CASE = "Reversed"
 #TEST_CASE = "Distant Start"
 #TEST_CASE = "Distant Start Reversed"
 #TEST_CASE = "Distant End"
 #TEST_CASE = "Distant to Distant"
-
-#TEST_CASE = "High end"
-#TEST_CASE = "High end start"
-# Obstacle related tests:
-
-
-#TEST_CASE = "Easy Rotated"
-#TEST_CASE = "Easy Rotated Reversed"
+#TEST_CASE = "Rotated Start"
+#TEST_CASE = "Rotated End"got
 #TEST_CASE = "Forward Obstacle"
-#TEST_CASE = "Long Obstacle"
-
+#TEST_CASE = "Long Obstacle" # must change the urdf file for this test case
+#TEST_CASE = "Tough Reach" # experimental test case (PLEASE DO NOT USE, NOT WORKING)
 
 if TEST_CASE == "Standard":
 
@@ -105,9 +99,9 @@ elif TEST_CASE == "Forward Obstacle":
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
 
 elif TEST_CASE == "Long Obstacle":
-    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.2, -0.1, 0.94]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.48, 0.93]))
-    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.6, 0.2, 0.93]))
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.25, -0.48, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.55, 0.3, 0.93]))
 
 elif TEST_CASE == "High end":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
@@ -120,16 +114,22 @@ elif TEST_CASE == "High end start":
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.33, -0.3, 0.93]))
 
 # in the case when the cube is rotated, but the right hand still goes to the right hook
-elif TEST_CASE == "Easy Rotated":
+elif TEST_CASE == "Rotated Start":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
     #CUBE_PLACEMENT = pin.SE3(rotate('z', 0.4),np.array([0.33, -0.43, 0.93]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.0), np.array([0.33, -0.43, 0.93]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.4), np.array([0.46, -0.35, 0.93]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
 
-elif TEST_CASE == "Easy Rotated Reversed":
+elif TEST_CASE == "Rotated End":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
     CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0.4),np.array([0.33, 0.15, 0.93]))
+
+# Experimental test case for randomising initial configuration
+elif TEST_CASE == "Tough Reach":
+    OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.0),np.array([0.3, -0.4, 0.93]))
+    CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
 
 #do not edit this part unless you know what you are doing
 MODELS_PATH = join(dirname(str(abspath(__file__))), "models") 

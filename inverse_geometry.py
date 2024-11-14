@@ -277,16 +277,15 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
     """
 
     cube_reached = False
-    for i in range(4000): # TODO - magic number
+    for i in range(4000):
 
         q, cube_reached = inverse_kinematics_quadprog_step(robot, q, cube, time_step)
 
         if viz:
             viz.display(q)
-            time.sleep(time_step)
 
-        if cube_reached and distanceToObstacle(robot, q) > 0: # TODO - was >= 0
-            return q, cube_reached
+        if cube_reached and not collision(robot, q):
+            return q, True
 
         if cube_reached and collision(robot, q):
             return q, False
@@ -370,10 +369,38 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
     qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.02, viz=viz)
-    #qnext, success = inverse_kinematics_analytic(robot, qcurrent, cube, time_step=0.02, viz=viz)
 
     return qnext, success
 
+"""
+!!! ATTEMPTED EDGE CASE !!!
+
+We considered that in some cases, the robot may not reach the cube on first attempt due to collision, 
+even though there exists a valid configuration. In such cases, we randomise the configuration and
+attempt to find a valid configuration that is not in collision. 
+
+This method was a last minute addition, and while it sometimes works in inverse geometry, 
+we did not have time to integrate it into RRT, but we believe it could be useful in the future 
+
+"""
+def computegrasppose_random(robot, qcurrent, cube, cubetarget, viz=None):
+    setcubeplacement(robot, cube, cubetarget)
+    qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.02, viz=viz)
+
+    if not success:
+        # attempt to find a configuration that is not in collision by randomising
+        for attempt in range(100):
+            print(f"Attempting random configuration {attempt}")
+            # generate a random 15 x1 vector
+            q_random = np.random.rand(robot.nq) * 2 * np.pi - np.pi
+            # project to joint limits
+            q_random = projecttojointlimits(robot, q_random)
+
+            qnext, success = inverse_kinematics(robot, q_random, cube, time_step=0.02, viz=viz)
+            if success:
+                break
+
+    return qnext, success
 
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -384,11 +411,11 @@ if __name__ == "__main__":
     total_time = 0
     q = robot.q0.copy()
 
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=viz)
+    q0, successinit = computegrasppose_random(robot, q, cube, CUBE_PLACEMENT, viz=None)
     print(successinit)
 
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=viz)
+    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=None)
 
     print(successend)
     updatevisuals(viz, robot, cube, q0)

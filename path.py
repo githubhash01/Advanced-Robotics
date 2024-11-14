@@ -331,8 +331,8 @@ if __name__ == "__main__":
     robot, cube, viz = setupwithmeshcat()
 
     q = robot.q0.copy()
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, None)
-    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, None)
+    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz)
 
     if not (successinit and successend):
         print("error: invalid initial or end configuration")
