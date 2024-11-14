@@ -32,7 +32,7 @@ COLLISION_STATUS = "collision"
 REACHED_STATUS = "reached"
 
 def maketraj(path, q0, q1, T, sub_traj=N_BEZIERS):
-    path = [q0]*10 + path + [q1]*10
+    path = [q0]*1 + path + [q1]*5
 
     if sub_traj is None:
         # Only one trajectory
@@ -191,7 +191,7 @@ def control_main(render=True):
     sim.setqsim(q0)
 
     #TODO this is just a random trajectory, you need to do this yourself
-    total_time = 4.0
+    total_time = 4.
     trajs = maketraj(path, q0, qe, total_time)
     tcur = 0.
 

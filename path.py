@@ -60,10 +60,10 @@ class PathFinder:
     def generate_random_cube_placement(self):
 
         while True:
-            x_min = min(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) - 0.2
-            x_max = max(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) + 0.2
-            y_min = min(CUBE_PLACEMENT.translation[1], CUBE_PLACEMENT_TARGET.translation[1]) - 0.2
-            y_max = max(CUBE_PLACEMENT.translation[1], CUBE_PLACEMENT_TARGET.translation[1]) + 0.2
+            x_min = min(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) - 0.3
+            x_max = max(CUBE_PLACEMENT.translation[0], CUBE_PLACEMENT_TARGET.translation[0]) + 0.3
+            y_min = min(CUBE_PLACEMENT.translation[1], CUBE_PLACEMENT_TARGET.translation[1]) - 0.3
+            y_max = max(CUBE_PLACEMENT.translation[1], CUBE_PLACEMENT_TARGET.translation[1]) + 0.3
 
 
             z_min = min(CUBE_PLACEMENT.translation[2], CUBE_PLACEMENT_TARGET.translation[2])
@@ -152,9 +152,9 @@ class PathFinder:
             d_cube_obstacle = distance_from_collision_cube(self.cube)
 
             # if the cube is too close to the obstacle, ignore it and reset the cube placement
-            if d_cube_obstacle < 0.1:
-                setcubeplacement(self.robot, self.cube, cube_placement_current)
-                continue
+            # if d_cube_obstacle < 0.1:
+            #     setcubeplacement(self.robot, self.cube, cube_placement_current)
+            #     continue
 
             # visualise
             if self.viz is not None and self.visualise_process:

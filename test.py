@@ -78,10 +78,10 @@ if __name__=="__main__":
     CONTROL_VARY_KP = "control_vary_kp"
     VALUES_OF_KP = [150, 200, 300, 400, 500, 750, 1000, 2000]
     CONTROL_VARY_BEZIER = "control_vary_bezier"
-    VALUES_OF_N_BEZIER = [None, 3, 5, 10, 15, 20, 25, 30]
+    VALUES_OF_N_BEZIER = [None, 3, 5, 10, 15]
 
-    TEST_TO_RUN = CONTROL_VARY_BEZIER ### !!!! TODO CHANGE THIS TO RUN DIFFERENT TESTS !!!! ####
-    TEST_CASES_TO_RUN = ["Standard"]  # To run it on all test cases, use: TEST_CASES
+    TEST_TO_RUN = CONTROL_TEST ### !!!! TODO CHANGE THIS TO RUN DIFFERENT TESTS !!!! ####
+    TEST_CASES_TO_RUN = [config.TEST_CASE]  # To run it on all test cases, use: TEST_CASES
 
     if TEST_TO_RUN == INVERSE_GEOMETRY_TEST:
         print("!!!!!REMINDER!!!!! Please start meshcat server by running 'meshcat-server' in a terminal")
@@ -89,31 +89,22 @@ if __name__=="__main__":
     successes = {}
     for test_case in TEST_CASES_TO_RUN:
         print(f"Running test case: {test_case}")
-        config.CUBE_PLACEMENT = TEST_CASES[test_case]["cube_placement"]
-        config.CUBE_PLACEMENT_TARGET = TEST_CASES[test_case]["cube_placement_target"]
-        config.OBSTACLE_PLACEMENT = TEST_CASES[test_case]["obstacle_placement"]
-        importlib.reload(control)
-        importlib.reload(bezier)
-        importlib.reload(setup_pybullet)
-        importlib.reload(setup_meshcat)
-        importlib.reload(path)
-        importlib.reload(inverse_geometry)
 
         test_case_successes = []
 
         # run the test case 10 times and get the success rate
-        NUM_RUNS = 8
+        NUM_RUNS = 10
         for i in range(NUM_RUNS):
 
             if TEST_TO_RUN == CONTROL_TEST:
                 current_time = time.time()
-                reached, dist_to_goal, predicted_path, actual_path, qs_actual, qs_reference, qs_diff = control_main(render=False)
+                reached, dist_to_goal, predicted_path, actual_path, qs_actual, qs_reference, qs_diff = control_main(render=True)
                 time_taken = time.time() - current_time
                 plot_graphs(predicted_path, actual_path, qs_actual, qs_reference, qs_diff, test_case)
                 test_case_successes.append((reached, dist_to_goal, time_taken))
             elif TEST_TO_RUN == INVERSE_GEOMETRY_TEST:
                 current_time = time.time()
-                successinit, successend, error = inverse_geometry.inverse_geometry_main(viz_on=False)
+                successinit, successend, error = inverse_geometry.inverse_geometry_main(viz_on=True)
                 time_taken = time.time() - current_time
                 test_case_successes.append((successinit, successend, error, time_taken))
             elif TEST_TO_RUN == CONTROL_VARY_KP:
@@ -221,37 +212,3 @@ if __name__=="__main__":
 
     print(successes)
 
-# test inverse geeomtry with rotate cube
-# find the boundaries of IG where there is a solutions. easy rotation vs hard roation if right hand is still ro the right hook.
-# if target position is rotated...
-
-# import time
-#
-# # TODO: reached if q is within epsilon away from cube. assume that if it collides eveyrthing is messed up.
-# ## TODO: plto path for each forward kinematics
-# # TODO: change gains over a range
-# # TODO: with start position and end postioin, run 10 times and how many times correctly.
-#
-# # test 1: Get the success rate of moving the cube from the start to the end position.
-# from control import control_main
-# from config import TEST_CASE
-# import config, control
-# import importlib, bezier, setup_pybullet, setup_meshcat, path, inverse_geometry
-#
-# successes = 0
-#
-# # run the test case 10 times and get the success rate
-# RUNS = 30
-# for i in range(RUNS):
-#     reached, dist_to_goal = control_main()
-#     successes += reached
-#
-#     if not reached:
-#         print(f"Failed to reach the goal for test case: {TEST_CASE}")
-#
-# print(f"Success rate for test case {TEST_CASE}: {successes / RUNS}")
-# print(successes)
-#
-# # test inverse geeomtry with rotate cube
-# # find the boundaries of IG where there is a solutions. easy rotation vs hard roation if right hand is still ro the right hook.
-# # if target position is rotated...
