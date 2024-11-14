@@ -14,7 +14,7 @@ from pinocchio.utils import rotate
 #These parameters can be edited
 USE_MESHCAT = True # part 1 uses meshcat
 USE_PYBULLET = True # the second part of the lab will use pybullet
-MESHCAT_URL ="tcp://127.0.0.1:6002"
+MESHCAT_URL ="tcp://127.0.0.1:6000"
 USE_PYBULLET_GUI = USE_PYBULLET and True
 USE_PYBULLET_REALTIME = USE_PYBULLET and False
 
@@ -57,7 +57,7 @@ TEST_CASE = "Standard"
 #TEST_CASE = "Distant End"
 #TEST_CASE = "Distant to Distant"
 #TEST_CASE = "Rotated Start"
-#TEST_CASE = "Rotated End"got
+#TEST_CASE = "Rotated End"
 #TEST_CASE = "Forward Obstacle"
 #TEST_CASE = "Long Obstacle" # must change the urdf file for this test case
 #TEST_CASE = "Tough Reach" # experimental test case (PLEASE DO NOT USE, NOT WORKING)

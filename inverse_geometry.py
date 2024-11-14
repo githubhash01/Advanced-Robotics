@@ -407,11 +407,11 @@ if __name__ == "__main__":
 
     q = robot.q0.copy()
 
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=None)
+    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=viz)
     print(successinit)
 
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=None)
+    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=viz)
 
     print(successend)
     updatevisuals(viz, robot, cube, q0)
