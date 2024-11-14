@@ -14,7 +14,7 @@ from pinocchio.utils import rotate
 #These parameters can be edited
 USE_MESHCAT = True # part 1 uses meshcat
 USE_PYBULLET = True # the second part of the lab will use pybullet
-MESHCAT_URL ="tcp://127.0.0.1:6002"
+MESHCAT_URL ="tcp://127.0.0.1:6000"
 USE_PYBULLET_GUI = USE_PYBULLET and True
 USE_PYBULLET_REALTIME = USE_PYBULLET and False
 
@@ -36,19 +36,12 @@ TABLE_PLACEMENT= pin.SE3(rotate('z',-np.pi/2),np.array([0.8,0.,0.]))
 """
 Testing for robustness by changing the cube and potentially, the obstacle placement
 
-Test Cases: 
-
-1. Standard
-2. Reversed
-3. Far cubes
-4. Close cubes
-5. Tall obstacle
-6. Long obstacle 
+!!! UNCOMMENT THE TEST CASE YOU WANT TO RUN !!!
 """
 
 # Standard case
 TEST_CASE = "Standard"
-# Distance of cube related tests:
+# **Distance** of cube related tests:
 
 
 #TEST_CASE = "Reversed"
@@ -56,16 +49,12 @@ TEST_CASE = "Standard"
 #TEST_CASE = "Distant Start Reversed"
 #TEST_CASE = "Distant End"
 #TEST_CASE = "Distant to Distant"
-
 #TEST_CASE = "High end"
-#TEST_CASE = "High end start"
-# Obstacle related tests:
 
+# **Obstacle** related tests:
 
 #TEST_CASE = "Easy Rotated"
 #TEST_CASE = "Easy Rotated Reversed"
-#TEST_CASE = "Forward Obstacle"
-#TEST_CASE = "Long Obstacle"
 
 
 if TEST_CASE == "Standard":
@@ -122,8 +111,7 @@ elif TEST_CASE == "High end start":
 # in the case when the cube is rotated, but the right hand still goes to the right hook
 elif TEST_CASE == "Easy Rotated":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
-    #CUBE_PLACEMENT = pin.SE3(rotate('z', 0.4),np.array([0.33, -0.43, 0.93]))
-    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.0), np.array([0.33, -0.43, 0.93]))
+    CUBE_PLACEMENT = pin.SE3(rotate('z', 0.4),np.array([0.46, -0.35, 0.93]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
 
 elif TEST_CASE == "Easy Rotated Reversed":

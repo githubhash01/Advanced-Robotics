@@ -21,8 +21,9 @@ from inverse_geometry import computeqgrasppose, compute_grasp_pose_constrained, 
 !!! BONUS TASK - Enhanced RRT !!! 
 !!! BONUS TASK - KD Tree !!!
 
-"""
+!!! ALSO CHECK OUT OUR TEST in test_path.py :) !!!
 
+"""
 
 # Does linear interpolation between two cube placements
 def lerp(cube1, cube2, t):
@@ -142,13 +143,7 @@ class PathFinder:
         cube_placement_goal (pin.SE3) - the goal cube placement
 
         Outputs: None
-
-        Notes:
-
-
-
         """
-
 
         start_node = Node(None, q_init, cube_placement_init)
 
@@ -311,7 +306,8 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
     for attempt in range(20):
         pathfinder.build_RRT(qinit, qgoal, cubeplacementq0, cubeplacementqgoal)
         if pathfinder.path_found:
-            print("Found path in: ", round(time.time() - start_time), "seconds")
+            time_taken = round(time.time() - start_time)
+            print("Found path in: ", time_taken, "seconds")
             # pathfinder.display_node_path(0.05)
             return pathfinder.path
 

@@ -12,6 +12,8 @@ from numpy.linalg import pinv
 from pinocchio.pinocchio_pywrap.rpy import rotate
 import time
 import quadprog
+from tools import setupwithmeshcat
+from setup_meshcat import updatevisuals
 
 from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON, DT
 from tools import setcubeplacement, jointlimitsviolated, projecttojointlimits, collision, getcubeplacement, \
@@ -289,6 +291,7 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
             return q, cube_reached
 
         if cube_reached and collision(robot, q):
+            print("REACHED GOAL BUT ROBOT IN COLLISION")
             return q, False
 
     return robot.q0, cube_reached
@@ -365,6 +368,7 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, delta_cube
 
     return q_current, False
 
+
 # Computes the grasp pose of the robot
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
@@ -375,20 +379,30 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     return qnext, success
 
 
-if __name__ == "__main__":
-    from tools import setupwithmeshcat
-    from setup_meshcat import updatevisuals
-
+def inverse_geometry_main(viz_on=True):
     robot, cube, viz = setupwithmeshcat()
 
-    total_time = 0
     q = robot.q0.copy()
 
-    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=viz)
+    if not viz_on:
+        viz = None
+
+    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
     print(successinit)
 
+    # set the cube to the target placement
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
-    qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=viz)
-
+    qe, successend = computeqgrasppose(robot, q0, cube, CUBE_PLACEMENT_TARGET, viz)
     print(successend)
-    updatevisuals(viz, robot, cube, q0)
+
+    if viz:
+        updatevisuals(viz, robot, cube, q0)
+
+    cube_now_at = find_cube_from_configuration(robot)
+    error = np.linalg.norm(cube_now_at.translation - CUBE_PLACEMENT_TARGET.translation)
+
+    return successinit, successend, error
+
+
+if __name__ == "__main__":
+    inverse_geometry_main()
