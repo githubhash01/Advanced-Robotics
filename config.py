@@ -41,20 +41,14 @@ Testing for robustness by changing the cube and potentially, the obstacle placem
 
 # Standard case
 TEST_CASE = "Standard"
-# **Distance** of cube related tests:
-
-
 #TEST_CASE = "Reversed"
 #TEST_CASE = "Distant Start"
 #TEST_CASE = "Distant Start Reversed"
 #TEST_CASE = "Distant End"
 #TEST_CASE = "Distant to Distant"
 #TEST_CASE = "High end"
-
-# **Obstacle** related tests:
-
-#TEST_CASE = "Easy Rotated"
-#TEST_CASE = "Easy Rotated Reversed"
+#TEST_CASE = "Rotated Start"
+#TEST_CASE = "Rotated End"
 
 
 if TEST_CASE == "Standard":
