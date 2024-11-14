@@ -301,7 +301,7 @@ leads to a much faster RRT algorithm
 
 """
 # Does IK with constraints, used for collision-free motion planning in RRT
-def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distance, viz=None):
+def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, delta_cube, delta_q, viz=None):
     """
     Inputs:
 
@@ -340,7 +340,11 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, max_distan
         setcubeplacement(robot, cube, cube_target)
 
         # Constraint: Distance travelled is less than max_distance
-        if np.linalg.norm(cube_next.translation - cube_original.translation) > max_distance:
+        if np.linalg.norm(cube_next.translation - cube_original.translation) > delta_cube:
+            return q_current, False
+
+        # Constraint: Distance travelled in joint space is less than delta_q
+        if np.linalg.norm(q_next - q_start) > delta_q: # TODO - add a parameter delta_q
             return q_current, False
 
         q_current = q_next

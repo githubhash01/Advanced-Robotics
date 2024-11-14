@@ -47,7 +47,7 @@ Test Cases:
 """
 
 # Standard case
-#TEST_CASE = "Standard"
+TEST_CASE = "Standard"
 # Distance of cube related tests:
 
 
@@ -55,7 +55,7 @@ Test Cases:
 #TEST_CASE = "Distant Start"
 #TEST_CASE = "Distant Start Reversed"
 #TEST_CASE = "Distant End"
-TEST_CASE = "Distant to Distant"
+#TEST_CASE = "Distant to Distant"
 
 #TEST_CASE = "High end"
 #TEST_CASE = "High end start"
