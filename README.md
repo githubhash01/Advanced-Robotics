@@ -1,3 +1,20 @@
+# HOW TO USE THE REPO 
+
+You can replicate the figures and tables in the report by going to test.py.
+
+You can follow the `TODO MARKER` to find what parameters to change to run the tests.
+The plots will be generated in the `images\` folder. If it's a table, the output will be in the terminal.
+
+
+
+
+
+
+
+
+
+
+
 # Advanced Robotics (INFR112132022) software labs
 
 These instructions are written for ARO labs regarding set up on DICE environment.
