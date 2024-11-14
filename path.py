@@ -208,6 +208,9 @@ class PathFinder:
                 goal_node.parent = new_node
                 self.tree.append(goal_node)
                 self.extract_node_path()
+                # run the shortcut algorithm
+                for _ in range(10):
+                    self.shortcut()
                 self.interpolate_path()
                 self.path_found = True
                 break
@@ -286,6 +289,15 @@ class PathFinder:
                 self.viz.display(node.configuration)
                 time.sleep(dt)
 
+    def shortcut(self):
+        for i, node1 in enumerate(self.node_path):
+            for j in reversed(range(i + 1, len(self.node_path))):
+                node2 = self.node_path[j]
+                # Check if there's a valid, collision-free edge between 'node1' and 'node2'
+                furthest_node = compute_grasp_pose_constrained(self.robot, node1.configuration, self.cube, node2.cube_placement, 0.3)
+                error = np.linalg.norm(furthest_node[0] - node2.configuration)
+                if error < EPSILON:
+                    self.node_path = self.node_path[:i + 1] + self.node_path[j:]
 
 
 # returns a collision free path from qinit to qgoal under grasping constraints
