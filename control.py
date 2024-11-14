@@ -7,11 +7,10 @@ Created on Wed Sep  6 15:32:51 2023
 """
 
 import numpy as np
-from inverse_geometry import get_hand_jacobian, find_cube_from_configuration
+from inverse_geometry import get_hand_jacobian
 import pinocchio
-from config import RIGHT_HAND, LEFT_HAND, EPSILON
+from config import RIGHT_HAND, LEFT_HAND
 from bezier import Bezier
-import matplotlib.pyplot as plt
 
 # PD gains set by Steve Thonneau - they work well for this problem
 Kp = 400

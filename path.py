@@ -143,13 +143,7 @@ class PathFinder:
 
         Outputs: None
 
-        Notes:
-
-
-
         """
-
-
         start_node = Node(None, q_init, cube_placement_init)
 
         # if the start node is rotated, we can rotate it back to 0
@@ -312,6 +306,8 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         pathfinder.build_RRT(qinit, qgoal, cubeplacementq0, cubeplacementqgoal)
         if pathfinder.path_found:
             print("Found path in: ", round(time.time() - start_time), "seconds")
+
+            """ !!! Visualise the path with the cube placements !!! """
             # pathfinder.display_node_path(0.05)
             return pathfinder.path
 

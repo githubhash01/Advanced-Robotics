@@ -129,7 +129,6 @@ def find_cube_from_configuration(robot):
     # get the average of the two translations
     average_translation = (translation_rh + translation_lh) / 2
 
-    # TODO - consider the rotation of the cube
     cube_placement = pin.SE3(rotate('z', 0), average_translation)
     return cube_placement
 
@@ -246,10 +245,7 @@ def inverse_kinematics_quadprog_step(robot, qcurrent, cube, time_step):
     C = np.vstack((np.eye(robot.model.nq), -np.eye(robot.model.nq)))
     b = np.hstack((q_dot_min, -q_dot_max))
 
-    # Solve the QP to find the next joint velocities
-    # TODO - include the joint limits in the optimisation
-    #q_dot = quadprog.solve_qp(G, a, C.T, b)[0]
-    q_dot = quadprog.solve_qp(G, a)[0]
+    q_dot = quadprog.solve_qp(G, a, C.T, b)[0]
     # Update q current to the next position
     qnext = pin.integrate(robot.model, qcurrent, q_dot * time_step)
 
@@ -351,7 +347,7 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, delta_cube
             return q_current, False
 
         # Constraint: Distance travelled in joint space is less than delta_q
-        if np.linalg.norm(q_next - q_start) > delta_q: # TODO - add a parameter delta_q
+        if np.linalg.norm(q_next - q_start) > delta_q:
             return q_current, False
 
         q_current = q_next
@@ -402,13 +398,13 @@ def computegrasppose_random(robot, qcurrent, cube, cubetarget, viz=None):
 
     return qnext, success
 
+
 if __name__ == "__main__":
     from tools import setupwithmeshcat
     from setup_meshcat import updatevisuals
 
     robot, cube, viz = setupwithmeshcat()
 
-    total_time = 0
     q = robot.q0.copy()
 
     q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=None)
