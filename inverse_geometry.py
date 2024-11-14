@@ -288,16 +288,24 @@ def inverse_kinematics(robot, q, cube, time_step, viz):
         if cube_reached and distanceToObstacle(robot, q) > 0: # TODO - was >= 0
             return q, cube_reached
 
+        if cube_reached and collision(robot, q):
+            return q, False
+
     return robot.q0, cube_reached
 
 
 """
-!!! BONUS TASK - Enhanced RRT !!!
+!!! BONUS MARKS !!!
+
+- A better option to Linear Interpolation to check if a new node can be added
 
 Used as part of the enhanced RRT algorithm to find a collision-free path between two configurations
 avoids the need to do linear interpolation between the nearest node and the random node, by checking
-for collisions on the path whilst finding the grasp pose of the random node - far more efficient, 
-leads to a much faster RRT algorithm
+for constraints on the path whilst finding the grasp pose of the random node - far more efficient, 
+leads to a much faster RRT algorithm. Constraints include, no collisions with the cube, no collisions 
+with the robot. Additionally, there is a delta_q and a delta_cube parameter to limit the distance that 
+can be travelled both in joint space and in cartesian space. Including both constraints makes the 
+movements much more natural and also more reliable. 
 
 """
 # Does IK with constraints, used for collision-free motion planning in RRT
@@ -325,7 +333,7 @@ def compute_grasp_pose_constrained(robot, q_start, cube, cube_target, delta_cube
 
     for i in range(1000):
 
-        q_next, cube_reached = inverse_kinematics_quadprog_step(robot, q_current, cube, time_step=0.1)
+        q_next, cube_reached = inverse_kinematics_quadprog_step(robot, q_current, cube, time_step=0.02)
 
         # Constraint: Robot is not in collision
         if collision(robot, q_next):

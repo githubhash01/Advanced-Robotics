@@ -14,9 +14,9 @@ from bezier import Bezier
 import matplotlib.pyplot as plt
 
 # PD gains set by Steve Thonneau - they work well for this problem
-Kp = 500
+Kp = 400
 Kv = 2 * np.sqrt(Kp)
-Kgrip = 100 # Gain for gripping the cube
+Kgrip = 80 # Gain for gripping the cube
 
 
 # Function to create a trajectory
@@ -35,7 +35,8 @@ def maketraj(path, q0, q1, T):
     vq_of_t: a function vq_of_t(t) that returns the velocity at time t
     vvq_of_t: a function vvq_of_t(t) that returns the acceleration at time t
     """
-    path = [q0]*5 + path + [q1]*5
+    path = [q0]*3 + path + [q1]*3
+
     q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)
 
     vq_of_t = q_of_t.derivative(1)
