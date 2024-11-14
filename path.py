@@ -12,7 +12,7 @@ from pinocchio.utils import rotate
 import time
 from scipy.spatial import KDTree
 
-from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle
+from tools import setupwithmeshcat, setcubeplacement, distanceToObstacle, getcubeplacement
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, EPSILON, DT
 from inverse_geometry import computeqgrasppose, compute_grasp_pose_constrained, find_cube_from_configuration
 
@@ -208,10 +208,7 @@ class PathFinder:
                 goal_node.parent = new_node
                 self.tree.append(goal_node)
                 self.extract_node_path()
-                # run the shortcut algorithm
-                for _ in range(10):
-                    self.shortcut()
-                self.interpolate_path()
+                self.path_smoothing()
                 self.path_found = True
                 break
 
@@ -238,8 +235,19 @@ class PathFinder:
         # now build the actual configuration path
         self.path = [node.configuration for node in self.node_path]
 
+    """
+    !!! EXTENSION METHOD !!!
+    
+    Path smoothing method: 
+    
+    - Adds valid waypoint configurations using LERP between each node in the node path
+    - Ensures distance between waypoints is roughly constant, so that the trajectory generated is smooth (no sudden movements) 
+    - Down-samples the path to 100 waypoints
+    
+    - Vastly improves the quality of trajectory generated in control.py
+    """
     # Fills in the path for smooth trajectory
-    def interpolate_path(self):
+    def path_smoothing(self):
 
         new_path = []
 
@@ -252,7 +260,7 @@ class PathFinder:
             distance = np.linalg.norm(node1.cube_placement.translation - node2.cube_placement.translation)
 
             # interpolate such that each step is roughly 0.01 distance
-            num_steps = int(distance / 0.01) # at least 2 steps
+            num_steps = int(distance / 0.005) # at least 2 steps
 
             # interpolate between the two cube placements
             for t in np.linspace(0, 1, num_steps):
@@ -266,6 +274,7 @@ class PathFinder:
 
         self.path = new_path
 
+    # Checks if the edge between two cube placements is valid, i.e. there is a non-collision path between them
     def VALID_EDGE(self, q1, cube1, cube2):
         # interpolate between cube1 and cube2, and try to do inverse kinematics for each step
         # if by the end you have reached cube2, then the edge is valid
@@ -288,16 +297,6 @@ class PathFinder:
             if self.viz is not None:
                 self.viz.display(node.configuration)
                 time.sleep(dt)
-
-    def shortcut(self):
-        for i, node1 in enumerate(self.node_path):
-            for j in reversed(range(i + 1, len(self.node_path))):
-                node2 = self.node_path[j]
-                # Check if there's a valid, collision-free edge between 'node1' and 'node2'
-                furthest_node = compute_grasp_pose_constrained(self.robot, node1.configuration, self.cube, node2.cube_placement, 0.3)
-                error = np.linalg.norm(furthest_node[0] - node2.configuration)
-                if error < EPSILON:
-                    self.node_path = self.node_path[:i + 1] + self.node_path[j:]
 
 
 # returns a collision free path from qinit to qgoal under grasping constraints
@@ -338,4 +337,4 @@ if __name__ == "__main__":
         raise ValueError("Invalid initial or end configuration")
 
     path = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, viz=viz)
-    displaypath(robot, path, 0.001, viz)
+    displaypath(robot, path, 0.5, viz)

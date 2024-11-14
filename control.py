@@ -7,21 +7,37 @@ Created on Wed Sep  6 15:32:51 2023
 """
 
 import numpy as np
-from inverse_geometry import get_hand_jacobian
+from inverse_geometry import get_hand_jacobian, find_cube_from_configuration
 import pinocchio
 from config import RIGHT_HAND, LEFT_HAND, EPSILON
 from bezier import Bezier
-from inverse_geometry import find_cube_from_configuration
+import matplotlib.pyplot as plt
 
 # PD gains set by Steve Thonneau - they work well for this problem
 Kp = 500
 Kv = 2 * np.sqrt(Kp)
 Kgrip = 100 # Gain for gripping the cube
 
+
 # Function to create a trajectory
 def maketraj(path, q0, q1, T):
+    """
+    Inputs:
+
+    path: a list of configurations
+    q0: the initial configuration
+    q1: the final configuration
+    T: the total time
+
+    Outputs:
+
+    q_of_t: a function q_of_t(t) that returns the configuration at time t
+    vq_of_t: a function vq_of_t(t) that returns the velocity at time t
+    vvq_of_t: a function vvq_of_t(t) that returns the acceleration at time t
+    """
     path = [q0]*5 + path + [q1]*5
-    q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)  # TODO - what is mult_t
+    q_of_t = Bezier(pointlist=path, t_min=0.0, t_max=T, mult_t=1.0)
+
     vq_of_t = q_of_t.derivative(1)
     vvq_of_t = vq_of_t.derivative(1)
 
@@ -30,24 +46,27 @@ def maketraj(path, q0, q1, T):
 # Control law
 def contact_controller(sim, robot, trajs, tcurrent, viz=None):
     """
+    Inputs:
 
-    tau = M* desired_q_double_dot + h + J.T * f_c
+    sim: the simulation object
+    robot: the robot object
+    trajs: a tuple of three functions representing the desired trajectory
+    tcurrent: the current time
+    viz: the visualisation object
 
-    Step 1) Calculate desired q double dot
+    Outputs:
 
-    desired_q_double_dot = reference_q_double_dot + Kp * (reference_q - q) + Kv * (reference_q_dot - q_dot)
+    None*
 
-    Step 2) Calculate torques
-
-    tau = M* desired_q_double_dot + h + J.T * f_c
-
+    (the function should update the simulation object with relevant torques)
     """
-    # Step 1) Calculate desired q double dot
 
     q, q_dot = sim.getpybulletstate()
 
     if viz is not None:
         viz.display(q)
+
+    # Step 1) Calculate the desired acceleration
 
     pinocchio.forwardKinematics(robot.model, robot.data, q)
     pinocchio.updateFramePlacements(robot.model, robot.data)
@@ -92,7 +111,7 @@ def contact_controller(sim, robot, trajs, tcurrent, viz=None):
 
 if __name__ == "__main__":
         
-    from tools import setupwithpybullet, setupwithpybulletandmeshcat, rununtil
+    from tools import setupwithpybullet, setupwithpybulletandmeshcat, rununtil, distanceToObstacle
     from config import DT
     
     robot, sim, cube = setupwithpybullet()
@@ -102,7 +121,7 @@ if __name__ == "__main__":
     from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET    
     from inverse_geometry import computeqgrasppose, setcubeplacement
     from path import computepath
-    
+
     q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, None)
     qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  None)
     path = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
@@ -110,7 +129,6 @@ if __name__ == "__main__":
     #setting initial configuration
     sim.setqsim(q0)
 
-    #TODO this is just a random trajectory, you need to do this yourself
     total_time = 4.0
     trajs = maketraj(path, q0, qe, total_time)
     tcur = 0.

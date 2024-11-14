@@ -17,8 +17,6 @@ from config import LEFT_HOOK, RIGHT_HOOK, LEFT_HAND, RIGHT_HAND, CUBE_PLACEMENT,
 from tools import setcubeplacement, jointlimitsviolated, projecttojointlimits, collision, getcubeplacement, \
     distanceToObstacle
 
-
-
 """
 
 Grasp Pose Problem: 
@@ -360,8 +358,8 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
     qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=0.02, viz=viz)
-    #qnext, success = inverse_kinematics(robot, qcurrent, cube, time_step=DT, viz=viz)
     #qnext, success = inverse_kinematics_analytic(robot, qcurrent, cube, time_step=0.02, viz=viz)
+
     return qnext, success
 
 
@@ -382,6 +380,3 @@ if __name__ == "__main__":
 
     print(successend)
     updatevisuals(viz, robot, cube, q0)
-
-
-# TODO - decide what to do with the timestep
