@@ -411,7 +411,7 @@ if __name__ == "__main__":
     total_time = 0
     q = robot.q0.copy()
 
-    q0, successinit = computegrasppose_random(robot, q, cube, CUBE_PLACEMENT, viz=None)
+    q0, successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz=None)
     print(successinit)
 
     setcubeplacement(robot, cube, CUBE_PLACEMENT_TARGET)
