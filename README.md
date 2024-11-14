@@ -10,4 +10,5 @@ In SUMMARY, to run a test, follow the steps below:
 2) Change the `TEST_TO_RUN` variable to the test you want to run by looking at the table above the variable, under the column `TEST_TO_RUN`.
 3) To change the test scenario, such as `Standard`, `Reversed`, `Rotated Start`..., go to `config.py` and uncomment the desired `TEST_CASE`.
 4) run `python3 test.py` in the terminal.
+5) The script will run the tests MULTIPLE times. The rendering is on for all tests except for Inverse Geometry. You can turn it on by setting `viz_on=True` on line 153.
 5) You can find the generated plots in `images\` folder. If it's a table, the output will be in the terminal.
