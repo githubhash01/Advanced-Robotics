@@ -109,12 +109,12 @@ elif TEST_CASE == "High end start":
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.33, -0.3, 0.93]))
 
 # in the case when the cube is rotated, but the right hand still goes to the right hook
-elif TEST_CASE == "Easy Rotated":
+elif TEST_CASE == "Rotated Start":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
     CUBE_PLACEMENT = pin.SE3(rotate('z', 0.4),np.array([0.46, -0.35, 0.93]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0),np.array([0.4, 0.11, 0.93]))
 
-elif TEST_CASE == "Easy Rotated Reversed":
+elif TEST_CASE == "Rotated End":
     OBSTACLE_PLACEMENT = pin.SE3(rotate('z', 0), np.array([0.43, -0.1, 0.94]))
     CUBE_PLACEMENT = pin.SE3(rotate('z', 0.),np.array([0.33, -0.3, 0.93]))
     CUBE_PLACEMENT_TARGET= pin.SE3(rotate('z', 0.4),np.array([0.33, 0.15, 0.93]))
