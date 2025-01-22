@@ -1,5 +1,7 @@
 # Advanced Robotics (INFR112132022) software labs
 
+(
+https://drive.google.com/file/d/1H1Cv_lt5X6uIqVM0IqTjRXN5aL2KSu6g/view?usp=share_link)
 These instructions are written for ARO labs regarding set up on DICE environment.
 
 The lab instructions are given in the instructions notebook. 
